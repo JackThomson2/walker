@@ -1,6 +1,6 @@
 use std::{io, fmt::Write};
 
-use may::{sync::mpsc, coroutine};
+use may::{sync::mpsc};
 use may_minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
 use crate::{router::store::get_route, request::RequestBlob};
@@ -18,14 +18,22 @@ impl WalkerServer {
         };
 
         let (send, rec) = mpsc::channel();
-        let msg_body = RequestBlob::new_with_message("", send);
+        let msg_body = RequestBlob::new_with_route(req.clone(), send);
 
-        result.call(vec![msg_body], napi::threadsafe_function::ThreadsafeFunctionCallMode::Blocking);
+        result.call(vec![msg_body], napi::threadsafe_function::ThreadsafeFunctionCallMode::Blocking); 
 
-        let res = rec.recv().unwrap();
+        let res = match rec.recv() {
+            Ok(res) => res,
+            Err(_) => {
+                rsp.status_code("404", "Not Found");
+                return;
+            }
+        };
 
         let bytes = rsp.body_mut();
-        bytes.write_str(&res).unwrap();
+        if bytes.write_str(&res).is_err() {
+            println!("Error writing message...");
+        };
     }
 }
 

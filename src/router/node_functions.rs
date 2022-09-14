@@ -1,8 +1,6 @@
+use napi::{bindgen_prelude::*, threadsafe_function::ThreadSafeCallContext};
 
-use napi::{bindgen_prelude::*, threadsafe_function::{ThreadSafeCallContext, ThreadsafeFunction}, Ref};
-
-use crate::{types::CallBackFunction, request::RequestBlob, router::store::add_new_route};
-
+use crate::{request::RequestBlob, router::store::add_new_route};
 
 #[napi]
 pub fn new_route(route: String, callback: JsFunction) -> Result<()> {

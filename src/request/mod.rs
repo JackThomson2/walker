@@ -1,23 +1,20 @@
-use std::{collections::HashMap, cell::RefCell, rc::Rc, sync::Arc};
-
-use may::sync::mpsc;
+use may::sync::mpsc::Sender;
+use may_minihttp::Request;
 
 pub mod node_functions;
 
 #[napi]
 #[derive(Clone, Debug)]
 pub struct RequestBlob {
-    data: Rc<HashMap<String, String>>,
-    message: String,
-    oneshot: mpsc::Sender<String>
+    data: Request,
+    oneshot: Sender<String>
 }
 
 impl RequestBlob {
-    pub fn new_with_message(message: &str, sender:mpsc::Sender<String>) -> Self {
+    pub fn new_with_route(data: Request, oneshot: Sender<String>) -> Self {
         Self {
-            data: Rc::new(HashMap::new()),
-            message: message.to_string(),
-            oneshot: sender
+            data,
+            oneshot
         }
     }
 }

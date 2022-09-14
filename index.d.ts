@@ -6,6 +6,6 @@
 export function newRoute(route: string, callback: (...args: any[]) => any): void
 export function start(address: string): void
 export class RequestBlob {
-  getMessage(): string
   setResponse(response: string): void
+  getParams(): Record<string, string> | null
 }
