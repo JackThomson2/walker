@@ -6,20 +6,23 @@ function timeout(ms) {
 
 const response = "Hello World"
 
-Walker.newRoute("/", (res) => {
+Walker.newRoute("/", Walker.Methods.GET, (res) => {
     res.setResponse(response);
 });
 
-Walker.newRoute("/hello/:name", (res) => {
+Walker.newRoute("/hello/:name", Walker.Methods.GET, (res) => {
     const params = res.getParams();
     res.setResponse(`Hello ${params.name}`);
 });
 
-Walker.newRoute("/async", async (res) => {
+Walker.newRoute("/async", Walker.Methods.GET, async (res) => {
     await timeout(1);
     res.setResponse("Hello world");
 });
 
-console.log('Done');
+Walker.newRoute("/post", Walker.Methods.POST, (res) => {
+    const body = res.getBody();
+    res.setResponse(body.toString('utf8'));
+});
 
 Walker.start("0.0.0.0:8081")

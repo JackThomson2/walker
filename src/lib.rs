@@ -3,6 +3,11 @@
 #[macro_use]
 extern crate napi_derive;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 mod router;
 mod request;
 mod types;

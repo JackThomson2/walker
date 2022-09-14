@@ -3,13 +3,23 @@ use std::{io, fmt::Write};
 use may::{sync::mpsc};
 use may_minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
-use crate::{router::store::get_route, request::RequestBlob};
+use crate::{router::store::get_route, request::RequestBlob, Methods};
 
 struct WalkerServer;
 
 impl WalkerServer {
+    #[inline]
     fn handle_function(&self, req: &Request, rsp: &mut Response) {
-        let result = match get_route(req.path()) {
+        let method_str = req.method().to_uppercase();
+        let method = match Methods::from_str(&method_str) {
+            Some(res) => res,
+            None => {
+                rsp.status_code("404", "Not Found");
+                return;
+            }
+        };
+
+        let result = match get_route(req.path(), method) {
             Some(res) => res,
             None => {
                 rsp.status_code("404", "Not Found");
@@ -38,6 +48,7 @@ impl WalkerServer {
 }
 
 impl HttpService for WalkerServer {
+    #[inline]
     fn call(&mut self, req: Request, rsp: &mut Response) -> io::Result<()> {
         self.handle_function(&req, rsp);
         

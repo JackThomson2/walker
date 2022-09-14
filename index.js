@@ -236,8 +236,9 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { newRoute, RequestBlob, start } = nativeBinding
+const { Methods, newRoute, RequestBlob, start } = nativeBinding
 
+module.exports.Methods = Methods
 module.exports.newRoute = newRoute
 module.exports.RequestBlob = RequestBlob
 module.exports.start = start

@@ -11,13 +11,16 @@ crate-type = ["cdylib"]
 napi = { version = "2.7.0", default-features = false, features = ["napi4"] }
 napi-derive = "2.7.0"
 may = "0.3"
-may_minihttp = { git = "https://github.com/JackThomson2/may_minihttp.git" }
+may_minihttp = { path = "../may_minihttp" }
 matchit = "0.6"
 once_cell = { version = "1.14.0", features = ["parking_lot"] }
 usync = "0.2"
+mimalloc = { version = "*", default-features = false }
 
 [build-dependencies]
 napi-build = "2.0.1"
 
 [profile.release]
 lto = true
+opt-level = 3
+codegen-units = 1
