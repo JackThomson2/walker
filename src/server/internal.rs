@@ -1,4 +1,4 @@
-use std::{io, fmt::Write};
+use std::io;
 
 use may::{sync::mpsc};
 use may_minihttp::{HttpServiceFactory, Request, HttpService, Response};
@@ -11,7 +11,7 @@ impl WalkerServer {
     #[inline]
     fn handle_function(&self, req: &Request, rsp: &mut Response) {
         let method_str = req.method().to_uppercase();
-        let method = match Methods::from_str(&method_str) {
+        let method = match Methods::convert_from_str(&method_str) {
             Some(res) => res,
             None => {
                 rsp.status_code("404", "Not Found");
@@ -39,11 +39,8 @@ impl WalkerServer {
                 return;
             }
         };
-
-        let bytes = rsp.body_mut();
-        if bytes.write_str(&res).is_err() {
-            println!("Error writing message...");
-        };
+        
+        res.apply_to_response(rsp);
     }
 }
 

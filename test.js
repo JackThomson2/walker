@@ -7,22 +7,29 @@ function timeout(ms) {
 const response = "Hello World"
 
 Walker.get("/", (res) => {
-    res.setResponse(response);
+    res.sendText(response);
+});
+
+Walker.get("/json", (res) => {
+    res.sendObject({
+        hello: "world",
+        json: "HERE",
+    });
 });
 
 Walker.get("/hello/:name", (res) => {
     const params = res.getParams();
-    res.setResponse(`Hello ${params.name}`);
+    res.sendText(`Hello ${params.name}`);
 });
 
 Walker.get("/async", async (res) => {
     await timeout(1);
-    res.setResponse("Hello world");
+    res.sendText("Hello world");
 });
 
 Walker.post("/post", (res) => {
     const body = res.getBody();
-    res.setResponse(body.toString('utf8'));
+    res.sendText(body.toString('utf8'));
 });
 
 Walker.start("0.0.0.0:8081")

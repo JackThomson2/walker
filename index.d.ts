@@ -48,7 +48,9 @@ export function patch(route: string, method: Methods, callback: (result: Request
 export function start(address: string): void
 export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
-  setResponse(response: string): void
+  sendText(response: string): void
+  /** This needs to be called at the end of every request even if nothing is returned */
+  sendObject(response: any): void
   /**
    * Get the url parameters as an object with each key and value
    * this will only be null if an error has occurred

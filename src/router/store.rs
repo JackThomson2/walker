@@ -9,7 +9,7 @@ use crate::{types::CallBackFunction, Methods};
 
 type ThreadSafeLookup = RwLock<Router<CallBackFunction>>;
 
-static GLOBAL_DATA: Lazy<InternalRoutes> = Lazy::new(|| InternalRoutes::new_manager());
+static GLOBAL_DATA: Lazy<InternalRoutes> = Lazy::new(InternalRoutes::new_manager);
 
 struct InternalRoutes {
   get: ThreadSafeLookup,

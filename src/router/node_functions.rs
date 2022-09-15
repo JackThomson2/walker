@@ -13,7 +13,7 @@ pub enum Methods {
 }
 
 impl Methods {
-  pub fn from_str(method: &str) -> Option<Self> {
+  pub fn convert_from_str(method: &str) -> Option<Self> {
     match method {
         "GET" => Some(Methods::GET),
         "POST" => Some(Methods::POST),
