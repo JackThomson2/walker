@@ -11,49 +11,43 @@ export const enum Methods {
   PATCH = 3,
   DELETE = 4
 }
-/**
- * Use this to register a new route in the server, the callback function will be called
- * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
- * needed to get the information from the request
- */
-export function newRoute(route: string, method: Methods, callback: (result: RequestBlob) => void): void
-/**
- * Adds a handler for the a GET request
- * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
- * needed to get the information from the request
- */
-export function get(route: string, method: Methods, callback: (result: RequestBlob) => void): void
-/**
- * Adds a handler for the a POST request
- * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
- * needed to get the information from the request
- */
-export function post(route: string, method: Methods, callback: (result: RequestBlob) => void): void
-/**
- * Adds a handler for the a PUT request
- * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
- * needed to get the information from the request
- */
-export function put(route: string, method: Methods, callback: (result: RequestBlob) => void): void
-/**
- * Adds a handler for the a PATCH request
- * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
- * needed to get the information from the request
- */
-export function patch(route: string, method: Methods, callback: (result: RequestBlob) => void): void
-/**
- * This is called to start the server the address will need to include the IP and port
- * e.g. localhost:8080
- */
-export function start(address: string): void
+export class ServerBuilder {
+  static newManager(): ServerBuilder
+  /**
+   * Use this to register a new route in the server, the callback function will be called
+   * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
+   * needed to get the information from the request
+   */
+  addNewRoute(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+  /**
+   * Adds a handler for the a GET request
+   * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
+   * needed to get the information from the request
+   */
+  get(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+  /**
+   * Adds a handler for the a POST request
+   * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
+   * needed to get the information from the request
+   */
+  post(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+  /**
+   * Adds a handler for the a PUT request
+   * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
+   * needed to get the information from the request
+   */
+  put(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+  /**
+   * Adds a handler for the a PATCH request
+   * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
+   * needed to get the information from the request
+   */
+  patch(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+  start(address: string): void
+}
 export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   setResponse(response: string): void
-  /**
-   * Get the url parameters as an object with each key and value
-   * this will only be null if an error has occurred
-   */
-  getParams(): Record<string, string> | null
   /** Retrieve the raw body bytes in a Uint8Array to be used */
   getBody(): Buffer
 }

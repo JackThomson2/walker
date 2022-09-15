@@ -6,23 +6,25 @@ function timeout(ms) {
 
 const response = "Hello World"
 
-Walker.get("/", (res) => {
+const builder = Walker.ServerBuilder.newManager();
+
+builder.get("/", (res) => {
     res.setResponse(response);
 });
 
-Walker.get("/hello/:name", (res) => {
+builder.get("/hello/:name", (res) => {
     const params = res.getParams();
     res.setResponse(`Hello ${params.name}`);
 });
 
-Walker.get("/async", async (res) => {
+builder.get("/async", async (res) => {
     await timeout(1);
     res.setResponse("Hello world");
 });
 
-Walker.post("/post", (res) => {
+builder.post("/post", (res) => {
     const body = res.getBody();
     res.setResponse(body.toString('utf8'));
 });
 
-Walker.start("0.0.0.0:8081")
+builder.start("0.0.0.0:8081")

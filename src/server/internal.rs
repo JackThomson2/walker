@@ -1,11 +1,13 @@
-use std::{io, fmt::Write};
+use std::{io, fmt::Write, sync::Arc};
 
 use may::{sync::mpsc};
 use may_minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
-use crate::{router::store::get_route, request::RequestBlob, Methods};
+use crate::{request::RequestBlob, Methods, router::store::InternalRoutes};
 
-struct WalkerServer;
+struct WalkerServer {
+    routes: Arc<InternalRoutes>
+}
 
 impl WalkerServer {
     #[inline]
@@ -19,7 +21,7 @@ impl WalkerServer {
             }
         };
 
-        let result = match get_route(req.path(), method) {
+        let result = match self.routes.get_route(req.path(), method) {
             Some(res) => res,
             None => {
                 rsp.status_code("404", "Not Found");
@@ -56,13 +58,17 @@ impl HttpService for WalkerServer {
     }
 }
 
-struct HttpServer;
+struct HttpServer {
+    routes: Arc<InternalRoutes>
+}
 
 impl HttpServiceFactory for HttpServer {
     type Service = WalkerServer;
 
     fn new_service(&self) -> Self::Service {
-        WalkerServer
+        WalkerServer {
+            routes: self.routes.clone()
+        }
     }
 }
 
@@ -74,16 +80,20 @@ fn configure_may() {
 }
 
 #[inline]
-fn run_server(address: String) {
-    let server = HttpServer.start(address).unwrap();
-    server.join().unwrap();
+fn run_server(address: String, router: Arc<InternalRoutes>) {
+    let server = HttpServer {
+        routes: router
+    };
+
+    let runner = server.start(address).unwrap();
+    runner.join().unwrap();
 }
 
 #[inline]
-pub fn start_server(address: String) {
+pub fn start_server(address: String, router: Arc<InternalRoutes>) {
     configure_may();
 
     std::thread::spawn(|| {
-        run_server(address);
+        run_server(address, router);
     });
 }
