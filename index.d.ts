@@ -49,6 +49,7 @@ export function start(address: string): void
 export class DbPool {
   static new(url: string, number: number): this
   query(input: string): Promise<unknown>
+  multiQuery(input: Array<string>): Promise<unknown>
 }
 export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */

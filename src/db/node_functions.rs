@@ -1,8 +1,11 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 
-use may_postgres::{Client, Row, SimpleQueryRow, SimpleQueryMessage};
-use napi::{bindgen_prelude::*, JsString};
-use serde_json::Value;
+use may::{
+  coroutine::{self, yield_now},
+  go,
+};
+use may_postgres::{Client, SimpleQueryMessage};
+use napi::bindgen_prelude::*;
 
 #[napi]
 pub struct DbPool {
@@ -12,12 +15,7 @@ pub struct DbPool {
 }
 
 fn create_client(url: &str) -> Result<Client> {
-  may_postgres::connect(url).map_err(|e| {
-    Error::new(
-      Status::GenericFailure,
-      e.to_string(),
-    )
-  })
+  may_postgres::connect(url).map_err(|e| Error::new(Status::GenericFailure, e.to_string()))
 }
 
 #[napi]
@@ -47,6 +45,14 @@ impl DbPool {
   pub fn query(&self, input: String) -> AsyncTask<DbGetter> {
     AsyncTask::new(DbGetter {
       client: self.get_next_client(),
+      input: vec![input],
+    })
+  }
+
+  #[napi]
+  pub fn multi_query(&self, input: Vec<String>) -> AsyncTask<DbGetter> {
+    AsyncTask::new(DbGetter {
+      client: self.get_next_client(),
       input,
     })
   }
@@ -54,30 +60,45 @@ impl DbPool {
 
 pub struct DbGetter {
   client: Arc<Client>,
-  input: String,
+  input: Vec<String>,
 }
 
 impl DbGetter {
-  fn queryClient(&self) -> Vec<Vec<String>> {
-
-    let res = self.client.simple_query(&self.input).unwrap();
+  fn query_all(&self, query: &str) -> Vec<Vec<String>> {
+    let res = self.client.simple_query(query).unwrap();
 
     let mut resulting: Vec<Vec<String>> = Vec::with_capacity(res.len());
 
     for i in res {
-      match i {
-        SimpleQueryMessage::Row(res) =>  {
-          let mut adding = Vec::with_capacity(res.len());
+      if let SimpleQueryMessage::Row(res) = i {
+        let mut adding = Vec::with_capacity(res.len());
 
-          for i in 0..res.len() {
-            adding.push(res.get(i).unwrap().to_string());
-          }
+        for i in 0..res.len() {
+          adding.push(res.get(i).unwrap().to_string());
+        }
 
-          resulting.push(adding);
-        },
-        _ => {}
+        resulting.push(adding);
       }
     }
+
+    resulting
+  }
+
+  fn query_all_client(&self) -> Vec<Vec<Vec<String>>> {
+    let mut resulting: Vec<Vec<Vec<String>>> = Vec::with_capacity(self.input.len());
+
+    coroutine::scope(|scope| {
+      let v = self
+        .input
+        .iter()
+        .map(|i| go!(scope, move || { self.query_all(i) }))
+        .collect::<Vec<_>>();
+      yield_now();
+      // wait child finish
+      for i in v {
+        resulting.push(i.join());
+      }
+    });
 
     resulting
   }
@@ -85,14 +106,14 @@ impl DbGetter {
 
 #[napi]
 impl Task for DbGetter {
-  type Output = Vec<Vec<String>>;
-  type JsValue = Vec<Vec<String>>;
+  type Output = Vec<Vec<Vec<String>>>;
+  type JsValue = Vec<Vec<Vec<String>>>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    Ok(self.queryClient())
+    Ok(self.query_all_client())
   }
 
-  fn resolve(&mut self, _: Env, output: Vec<Vec<String>>) -> Result<Self::JsValue> {
+  fn resolve(&mut self, _: Env, output: Vec<Vec<Vec<String>>>) -> Result<Self::JsValue> {
     Ok(output)
   }
 }

@@ -76,7 +76,7 @@ pub fn channel<T>() -> (Sender<T>, Reciever<T>) {
       inner: inner.clone(),
     },
     Reciever {
-      inner: inner.clone(),
+      inner,
     },
   )
 }
@@ -89,7 +89,7 @@ impl<T> Reciever<T> {
   #[inline(always)]
   fn check_read(&self) -> Option<T> {
     match self.inner.state.load(Acquire) {
-      MESSAGE => return Some(unsafe { self.inner.take_message() }),
+      MESSAGE => Some(unsafe { self.inner.take_message() }),
       _ => None,
     }
   }

@@ -34,7 +34,9 @@ impl RequestBlob {
 
     let bytes = writer.into_inner();
     let message = JsResponse::Json(bytes.freeze());
-    Ok(unsafe { self.oneshot.send(message) })
+
+    unsafe { self.oneshot.send(message); }
+    Ok(())
   }
 
   #[inline]

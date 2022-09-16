@@ -37,8 +37,45 @@ Walker.get("/async", async (res) => {
 });
 
 Walker.get('/db_call', async (res) => {
-    const query = await pool.query("SELECT * FROM main LIMIT 2");
+    const query = await pool.query("SELECT (name, age) FROM main LIMIT 2");
     res.sendObject(query);
+})
+
+Walker.get('/db_multi_call', async (res) => {
+    const queries = [];
+
+    for (let i = 0; i < 10; i++) {
+        const query = pool.query("SELECT (name, age) FROM main LIMIT 2");
+        queries.push(query);
+    }
+
+    const result = await Promise.all(queries);
+
+    res.sendObject(result);
+})
+
+Walker.get('/db_multi_call_sync', async (res) => {
+    const queries = [];
+
+    for (let i = 0; i < 10; i++) {
+        const query = await pool.query("SELECT (name, age) FROM main LIMIT 2");
+        queries.push(query);
+    }
+
+    res.sendObject(queries);
+})
+
+Walker.get('/db_multi_call_native', async (res) => {
+    const queries = [];
+
+    for (let i = 0; i < 10; i++) {
+        const query = "SELECT (name, age) FROM main LIMIT 2";
+        queries.push(query);
+    }
+
+    const result = await pool.multiQuery(queries);
+
+    res.sendObject(result);
 })
 
 Walker.get('/db_insert', async (res) => {

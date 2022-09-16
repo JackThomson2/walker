@@ -24,11 +24,11 @@ impl JsResponse {
             Self::Text(message) | Self::Json(message) => {
 
                 let bytes = rsp.body_mut();
-                bytes.extend_from_slice(&message);
+                bytes.extend_from_slice(message);
             },
             Self::Raw(data) => {
                 let bytes = rsp.body_mut();
-                bytes.extend_from_slice(&data);
+                bytes.extend_from_slice(data);
             }
         }
     }
