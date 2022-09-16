@@ -9,6 +9,7 @@ pub enum JsResponse {
 }
 
 impl JsResponse {
+    #[inline(always)]
     fn apply_headers(&self, rsp: &mut Response) {
         let message = match self {
             Self::Text(_) => "Content-Type: text/plain",
@@ -19,10 +20,10 @@ impl JsResponse {
         rsp.header(message);
     }
 
+    #[inline(always)]
     fn apply_response(&self, rsp: &mut Response) {
         match self {
             Self::Text(message) | Self::Json(message) => {
-
                 let bytes = rsp.body_mut();
                 bytes.extend_from_slice(message);
             },
@@ -33,6 +34,7 @@ impl JsResponse {
         }
     }
 
+    #[inline(always)]
     pub fn apply_to_response(&self, rsp: &mut Response) {
         self.apply_headers(rsp);
         self.apply_response(rsp);
