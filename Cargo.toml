@@ -11,13 +11,13 @@ crate-type = ["cdylib"]
 napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json"] }
 napi-derive = "2.7.0"
 may = "0.3"
-may_minihttp = { path = "../may_minihttp" }
+may_minihttp = { git = "https://github.com/JackThomson2/may_minihttp.git" }
+may_postgres = { git = "https://github.com/Xudong-Huang/may_postgres.git", features = ["with-serde_json-1"] }
 matchit = "0.6"
 once_cell = { version = "1.14.0", features = ["parking_lot"] }
 usync = "0.2"
 mimalloc = { version = "*", default-features = false }
 bytes = "1.2.1"
-yarte = { version = "0.15", features = ["bytes-buf", "json"] }
 serde_json = "1.0.85"
 
 [build-dependencies]
