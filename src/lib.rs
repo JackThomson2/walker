@@ -8,6 +8,7 @@ use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+mod oneshot;
 mod router;
 mod request;
 mod types;

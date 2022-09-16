@@ -1,9 +1,8 @@
 use std::io;
 
-use may::{sync::mpsc};
 use may_minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
-use crate::{router::store::get_route, request::RequestBlob, Methods};
+use crate::{router::store::get_route, request::RequestBlob, Methods, oneshot::channel};
 
 struct WalkerServer;
 
@@ -27,14 +26,14 @@ impl WalkerServer {
             }
         };
 
-        let (send, rec) = mpsc::channel();
+        let (send, rec) = channel();
         let msg_body = RequestBlob::new_with_route(req.clone(), send);
 
         result.call(vec![msg_body], napi::threadsafe_function::ThreadsafeFunctionCallMode::Blocking); 
 
         let res = match rec.recv() {
-            Ok(res) => res,
-            Err(_) => {
+            Some(res) => res,
+            None => {
                 rsp.status_code("404", "Not Found");
                 return;
             }

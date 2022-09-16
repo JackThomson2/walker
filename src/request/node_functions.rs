@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut, BufMut};
 use napi::{bindgen_prelude::Buffer, Error, Result, Status};
 use serde_json::Value;
 
@@ -13,37 +13,28 @@ impl RequestBlob {
   #[inline]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_text(&self, response: String) -> Result<()> {
+  pub fn send_text(&self, response: String) {
     let message = JsResponse::Text(Bytes::copy_from_slice(response.as_bytes()));
-    self.oneshot.send(message).map_err(|_e| {
-      Error::new(
-        Status::GenericFailure,
-        "Unable to send response".to_string(),
-      )
-    })
+    unsafe { self.oneshot.send(message) }
   }
 
   #[inline]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_object(&self, response: Value) -> Result<()> {
-    let data = match serde_json::to_vec(&response) {
-      Ok(res) => res,
-      Err(_) => {
+    let bytes = BytesMut::with_capacity(100);
+    let mut writer = bytes.writer();
+
+    if serde_json::to_writer(&mut writer, &response).is_err() {
         return Err(Error::new(
           Status::GenericFailure,
           "Unable to send response".to_string(),
         ));
-      }
     };
-    
-    let message = JsResponse::Text(Bytes::copy_from_slice(&data));
-    self.oneshot.send(message).map_err(|_e| {
-      Error::new(
-        Status::GenericFailure,
-        "Unable to send response".to_string(),
-      )
-    })
+
+    let bytes = writer.into_inner();
+    let message = JsResponse::Json(bytes.freeze());
+    Ok(unsafe { self.oneshot.send(message) })
   }
 
   #[inline]

@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use may_minihttp::Response;
 
+#[derive(Clone)]
 pub enum JsResponse {
     Text(Bytes),
     Json(Bytes),
