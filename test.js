@@ -69,7 +69,7 @@ Walker.get('/db_multi_call_native', async (res) => {
     const queries = [];
 
     for (let i = 0; i < 10; i++) {
-        const query = "SELECT (name, age) FROM main LIMIT 2";
+        const query = "SELECT (name, age) FROM main LIMIT 10;";
         queries.push(query);
     }
 
@@ -81,6 +81,12 @@ Walker.get('/db_multi_call_native', async (res) => {
 Walker.get('/db_insert', async (res) => {
     await pool.query(`INSERT INTO main(name, age) VALUES('COUNTER', ${++counter});`);
     res.sendObject({ok: true});
+})
+
+Walker.get('/db_count', async (res) => {
+    const result = await pool.query(`SELECT reltuples AS estimate FROM pg_class WHERE relname = 'main';`);
+    const value = parseInt(result[0][0][0]);
+    res.sendObject({value});
 })
 
 Walker.post("/post", (res) => {

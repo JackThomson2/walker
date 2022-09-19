@@ -2,14 +2,18 @@ use std::collections::HashMap;
 
 use matchit::{Params, Router};
 use napi::bindgen_prelude::*;
-use once_cell::sync::Lazy;
 use usync::RwLock;
+
+use lazy_static::lazy_static;
 
 use crate::{types::CallBackFunction, Methods};
 
 type ThreadSafeLookup = RwLock<Router<CallBackFunction>>;
 
-static GLOBAL_DATA: Lazy<InternalRoutes> = Lazy::new(InternalRoutes::new_manager);
+lazy_static! {
+  static ref GLOBAL_DATA: InternalRoutes = InternalRoutes::new_manager();
+}
+
 
 struct InternalRoutes {
   get: ThreadSafeLookup,

@@ -3,10 +3,8 @@
 #[macro_use]
 extern crate napi_derive;
 
-use mimalloc::MiMalloc;
-
 #[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 mod db;
 mod oneshot;

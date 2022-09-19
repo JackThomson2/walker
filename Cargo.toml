@@ -12,18 +12,19 @@ napi = { version = "2.7.0", default-features = false, features = ["napi4", "serd
 napi-derive = "2.7.0"
 may = "0.3"
 may_minihttp = { git = "https://github.com/JackThomson2/may_minihttp.git" }
-may_postgres = { git = "https://github.com/Xudong-Huang/may_postgres.git", features = ["with-serde_json-1"] }
+may_postgres = { git = "https://github.com/Xudong-Huang/may_postgres.git" }
 matchit = "0.6"
-once_cell = { version = "1.14.0", features = ["parking_lot"] }
 usync = "0.2"
-mimalloc = { version = "*", default-features = false }
+snmalloc-rs = { version = "*", features = ["build_cc"] }
 bytes = "1.2.1"
 serde_json = "1.0.85"
+lazy_static = "1.4.0"
 
 [build-dependencies]
 napi-build = "2.0.1"
 
 [profile.release]
-lto = true
+lto = "fat"
 opt-level = 3
 codegen-units = 1
+panic = "abort"

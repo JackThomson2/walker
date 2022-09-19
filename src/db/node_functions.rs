@@ -32,13 +32,14 @@ impl DbPool {
     Ok(DbPool {
       idx: AtomicUsize::new(0),
       clients,
-      number,
+      number: number - 1,
     })
   }
 
+  #[inline]
   fn get_next_client(&self) -> Arc<Client> {
     let idx = self.idx.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    unsafe { self.clients.get_unchecked(idx & (self.number - 1)).clone() }
+    unsafe { self.clients.get_unchecked(idx & self.number).clone() }
   }
 
   #[napi]
@@ -64,6 +65,7 @@ pub struct DbGetter {
 }
 
 impl DbGetter {
+  #[inline]
   fn query_all(&self, query: &str) -> Vec<Vec<String>> {
     let res = self.client.simple_query(query).unwrap();
 
@@ -84,6 +86,7 @@ impl DbGetter {
     resulting
   }
 
+  #[inline]
   fn query_all_client(&self) -> Vec<Vec<Vec<String>>> {
     let mut resulting: Vec<Vec<Vec<String>>> = Vec::with_capacity(self.input.len());
 
@@ -91,7 +94,7 @@ impl DbGetter {
       let v = self
         .input
         .iter()
-        .map(|i| go!(scope, move || { self.query_all(i) }))
+        .map(|i| go!(scope, || { self.query_all(i) }))
         .collect::<Vec<_>>();
       yield_now();
       // wait child finish

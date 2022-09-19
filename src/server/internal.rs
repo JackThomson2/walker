@@ -7,7 +7,7 @@ use crate::{router::store::get_route, request::RequestBlob, Methods, oneshot::ch
 struct WalkerServer;
 
 impl WalkerServer {
-    #[inline]
+    #[inline(always)]
     fn handle_function(&self, req: &Request, rsp: &mut Response) {
         let method_str = req.method().to_uppercase();
         let method = match Methods::convert_from_str(&method_str) {
@@ -44,7 +44,7 @@ impl WalkerServer {
 }
 
 impl HttpService for WalkerServer {
-    #[inline]
+    #[inline(always)]
     fn call(&mut self, req: Request, rsp: &mut Response) -> io::Result<()> {
         self.handle_function(&req, rsp);
         
@@ -57,6 +57,7 @@ struct HttpServer;
 impl HttpServiceFactory for HttpServer {
     type Service = WalkerServer;
 
+    #[inline(always)]
     fn new_service(&self) -> Self::Service {
         WalkerServer
     }

@@ -10,7 +10,7 @@ use super::response::JsResponse;
 
 #[napi]
 impl RequestBlob {
-  #[inline]
+  #[inline(always)]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_text(&self, response: String) {
@@ -18,7 +18,7 @@ impl RequestBlob {
     unsafe { self.oneshot.send(message) }
   }
 
-  #[inline]
+  #[inline(always)]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_object(&self, response: Value) -> Result<()> {
@@ -39,7 +39,7 @@ impl RequestBlob {
     Ok(())
   }
 
-  #[inline]
+  #[inline(always)]
   #[napi]
   /// Get the url parameters as an object with each key and value
   /// this will only be null if an error has occurred
@@ -55,6 +55,7 @@ impl RequestBlob {
     crate::router::store::get_params(self.data.path(), method)
   }
 
+  #[inline(always)]
   #[napi]
   /// Retrieve the raw body bytes in a Uint8Array to be used
   pub fn get_body(&self) -> Buffer {
