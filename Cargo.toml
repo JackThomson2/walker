@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json"] }
 napi-derive = "2.7.0"
 may = "0.3"
-may_minihttp = { git = "https://github.com/JackThomson2/may_minihttp.git" }
 may_postgres = { git = "https://github.com/Xudong-Huang/may_postgres.git" }
 matchit = "0.6"
 usync = "0.2"
@@ -19,6 +18,10 @@ snmalloc-rs = { version = "*", features = ["build_cc"] }
 bytes = "1.2.1"
 serde_json = "1.0.85"
 lazy_static = "1.4.0"
+time = { version = "0.3", features = ["formatting"] }
+httparse = "1.8.0"
+log = "0.4.17"
+itoa = "1.0.3"
 
 [build-dependencies]
 napi-build = "2.0.1"

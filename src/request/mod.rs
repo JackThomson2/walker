@@ -1,6 +1,5 @@
 
-use may_minihttp::Request;
-
+use crate::minihttp::Request;
 use crate::oneshot::Sender;
 
 use self::response::JsResponse;

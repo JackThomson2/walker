@@ -55,6 +55,8 @@ export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendText(response: string): void
   /** This needs to be called at the end of every request even if nothing is returned */
+  sendBytesText(response: Buffer): void
+  /** This needs to be called at the end of every request even if nothing is returned */
   sendObject(response: any): void
   /**
    * Get the url parameters as an object with each key and value

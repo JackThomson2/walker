@@ -1,10 +1,11 @@
 use bytes::Bytes;
-use may_minihttp::Response;
+use crate::minihttp::Response;
+use napi::bindgen_prelude::Buffer;
 
-#[derive(Clone)]
 pub enum JsResponse {
     Text(Bytes),
     Json(Bytes),
+    TextBuffer(Buffer),
     Raw(Bytes)
 }
 
@@ -12,7 +13,7 @@ impl JsResponse {
     #[inline(always)]
     fn apply_headers(&self, rsp: &mut Response) {
         let message = match self {
-            Self::Text(_) => "Content-Type: text/plain",
+            Self::Text(_) | Self::TextBuffer(_)=> "Content-Type: text/plain",
             Self::Json(_) => "Content-Type: application/json",
             Self::Raw(_) => "Content-Type: application/octet-stream",
         };
@@ -24,12 +25,13 @@ impl JsResponse {
     fn apply_response(&self, rsp: &mut Response) {
         match self {
             Self::Text(message) | Self::Json(message) => {
-                let bytes = rsp.body_mut();
-                bytes.extend_from_slice(message);
+                rsp.write_bytes(message);
             },
             Self::Raw(data) => {
-                let bytes = rsp.body_mut();
-                bytes.extend_from_slice(data);
+                rsp.write_bytes(data);
+            },
+            Self::TextBuffer(buf) => {
+                rsp.write_buffer(buf);
             }
         }
     }

@@ -6,12 +6,22 @@ function timeout(ms) {
 
 const response = "Hello World"
 
+const buf = Buffer.from(response, 'utf8');
+
 let counter = 0;
 
 const pool = Walker.DbPool.new("postgresql://localhost:5432?user=postgres&password=test", 16);
 
 Walker.get("/", (res) => {
     res.sendText(response);
+});
+
+Walker.get("/t", (res) => {
+    res.sendText(response);
+});
+
+Walker.get("/b", (res) => {
+    res.sendBytesText(buf);
 });
 
 Walker.get("/counter", (res) => {

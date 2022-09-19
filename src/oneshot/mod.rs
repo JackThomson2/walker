@@ -94,6 +94,7 @@ impl<T> Reciever<T> {
     }
   }
 
+  #[inline(always)]
   pub fn recv(&self) -> Option<T> {
     // Spin at the start
     for i in 1..5 {
@@ -144,12 +145,19 @@ impl<T> Reciever<T> {
   }
 }
 
-#[derive(Clone)]
 pub struct Sender<T> {
   inner: Arc<OneShotInner<T>>,
 }
 
+impl<T> Clone for Sender<T> {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+}
+
 impl<T> Sender<T> {
+  #[inline(always)]
   pub unsafe fn send(&self, message: T) {
     self.inner.store_message(message);
 

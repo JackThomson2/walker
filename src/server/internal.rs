@@ -1,16 +1,16 @@
 use std::io;
 
-use may_minihttp::{HttpServiceFactory, Request, HttpService, Response};
+use crate::minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
-use crate::{router::store::get_route, request::RequestBlob, Methods, oneshot::channel};
+use crate::{router::store::{get_route, initialise_reader}, request::RequestBlob, Methods, oneshot::channel};
 
 struct WalkerServer;
 
 impl WalkerServer {
     #[inline(always)]
-    fn handle_function(&self, req: &Request, rsp: &mut Response) {
-        let method_str = req.method().to_uppercase();
-        let method = match Methods::convert_from_str(&method_str) {
+    fn handle_function(&self, req: Request, rsp: &mut Response) {
+        let method_str = req.method();
+        let method = match Methods::convert_from_str(method_str) {
             Some(res) => res,
             None => {
                 rsp.status_code("404", "Not Found");
@@ -46,7 +46,7 @@ impl WalkerServer {
 impl HttpService for WalkerServer {
     #[inline(always)]
     fn call(&mut self, req: Request, rsp: &mut Response) -> io::Result<()> {
-        self.handle_function(&req, rsp);
+        self.handle_function(req, rsp);
         
         Ok(())
     }
@@ -63,22 +63,23 @@ impl HttpServiceFactory for HttpServer {
     }
 }
 
-#[inline]
+#[cold]
 fn configure_may() {
     may::config()
         .set_pool_capacity(10000)
         .set_stack_size(0x1000);
 }
 
-#[inline]
+#[cold]
 fn run_server(address: String) {
     let server = HttpServer.start(address).unwrap();
     server.join().unwrap();
 }
 
-#[inline]
+#[cold]
 pub fn start_server(address: String) {
     configure_may();
+    initialise_reader();
 
     std::thread::spawn(|| {
         run_server(address);

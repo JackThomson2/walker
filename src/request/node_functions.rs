@@ -21,6 +21,14 @@ impl RequestBlob {
   #[inline(always)]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
+  pub fn send_bytes_text(&self, response: Buffer) {
+    let message = JsResponse::TextBuffer(response);
+    unsafe { self.oneshot.send(message) }
+  }
+
+  #[inline(always)]
+  #[napi]
+  /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_object(&self, response: Value) -> Result<()> {
     let bytes = BytesMut::with_capacity(100);
     let mut writer = bytes.writer();
