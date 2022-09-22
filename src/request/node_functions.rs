@@ -60,7 +60,7 @@ impl RequestBlob {
       }
     };
 
-    crate::router::store::get_params(self.data.path(), method)
+    crate::router::read_only::get_params(self.data.path(), method)
   }
 
   #[inline(always)]

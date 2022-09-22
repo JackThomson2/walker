@@ -2,8 +2,10 @@ use std::io;
 
 use crate::minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
-use crate::{router::store::{get_route, initialise_reader}, request::RequestBlob, Methods, oneshot::channel};
+use crate::router::read_only::get_route;
+use crate::{router::store::{initialise_reader}, request::RequestBlob, Methods, oneshot::channel};
 
+#[derive(Clone, Copy)]
 struct WalkerServer;
 
 impl WalkerServer {

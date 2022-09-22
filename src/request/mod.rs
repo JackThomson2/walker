@@ -15,6 +15,7 @@ pub struct RequestBlob {
 }
 
 impl RequestBlob {
+    #[inline]
     pub fn new_with_route(data: Request, oneshot: Sender<JsResponse>) -> Self {
         Self {
             data,

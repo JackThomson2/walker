@@ -33,7 +33,7 @@ impl Methods {
 /// needed to get the information from the request
 pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result<()> {
   let tsfn =
-    callback.create_threadsafe_function(1000, |ctx: ThreadSafeCallContext<Vec<RequestBlob>>| {
+    callback.create_threadsafe_function(1024, |ctx: ThreadSafeCallContext<Vec<RequestBlob>>| {
       Ok(ctx.value)
     })?;
 
