@@ -7,10 +7,9 @@ use lazy_static::lazy_static;
 
 use crate::{types::CallBackFunction, Methods};
 
-use super::read_only::{write_reader, ReadRoutes};
+use super::{read_only::{write_reader, ReadRoutes}, ReaderLookup};
 
-type ReaderLookup = Router<CallBackFunction>;
-type ThreadSafeLookup = RwLock<Router<CallBackFunction>>;
+type ThreadSafeLookup = RwLock<ReaderLookup>;
 
 lazy_static! {
   static ref GLOBAL_DATA: InternalRoutes = InternalRoutes::new_manager();

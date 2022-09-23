@@ -1,14 +1,15 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit, collections::HashMap};
 
-use matchit::{Router, Params};
+use matchit::Params;
 
 use crate::{types::CallBackFunction, Methods};
+
+use super::ReaderLookup;
 
 struct RouteCell(UnsafeCell<MaybeUninit<ReadRoutes>>);
 
 unsafe impl Sync for RouteCell where ReadRoutes: Sync {}
 
-type ReaderLookup = Router<CallBackFunction>;
 static ROUTER: RouteCell = RouteCell(UnsafeCell::new(MaybeUninit::uninit()));
 
 pub struct ReadRoutes {

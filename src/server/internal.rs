@@ -1,4 +1,5 @@
 use std::io;
+use std::time::Instant;
 
 use crate::minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
@@ -31,6 +32,7 @@ impl WalkerServer {
         let (send, rec) = channel();
         let msg_body = RequestBlob::new_with_route(req.clone(), send);
 
+        let start = Instant::now();
         result.call(vec![msg_body], napi::threadsafe_function::ThreadsafeFunctionCallMode::Blocking); 
 
         let res = match rec.recv() {
@@ -40,6 +42,8 @@ impl WalkerServer {
                 return;
             }
         };
+        let end = start.elapsed();
+        println!("Threadsafe func took {:?}", end);
         
         res.apply_to_response(rsp);
     }

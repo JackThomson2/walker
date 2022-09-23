@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json"] }
+napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json", "compat-mode"] }
 napi-derive = "2.7.0"
 may = "0.3"
 may_postgres = { git = "https://github.com/Xudong-Huang/may_postgres.git" }
