@@ -1,3 +1,6 @@
+pub mod messagebus;
+pub mod request;
+
 use std::{cell::UnsafeCell, ptr, sync::Arc, time::Instant};
 
 use napi::NapiRaw;
@@ -7,56 +10,28 @@ use napi::{
   JsObject, JsString, JsUndefined, Result, Value,
 };
 
-struct Inner {
-  value: napi_value,
-  reffing: napi::sys::napi_ref,
-}
+use crate::request::RequestBlob;
 
-impl Inner {
-  fn new(value: napi_value, reffing: napi::sys::napi_ref) -> Self {
-    Self { value, reffing }
-  }
-}
 
-struct CallbackCell(UnsafeCell<Option<Inner>>);
-
-static CallingBackFunc: CallbackCell = CallbackCell(UnsafeCell::new(None));
-
-unsafe impl Sync for CallbackCell {}
-
-#[js_function(1)]
+#[js_function(2)]
 fn registerFunction(ctx: CallContext) -> Result<JsUndefined> {
-  let mut raw_ref = ptr::null_mut();
-  let input_number = ctx.args[0];
+  let wrapped_obj: JsObject = ctx.get::<JsObject>(0)?;
+  let inner_function: &mut RequestBlob = ctx.env.unwrap(&wrapped_obj)?;
 
-  let _res =
-    unsafe { napi::sys::napi_create_reference(ctx.env.raw(), input_number, 2, &mut raw_ref) };
-
-  let callback_ref = unsafe { &mut *CallingBackFunc.0.get() };
-  *callback_ref = Some(Inner::new(input_number, raw_ref));
-
-  call_anon_function(&ctx.env)?;
+  let input_string = ctx.get::<JsString>(1)?.into_utf8()?;
+  inner_function.send_str(input_string.as_str()?);
 
   ctx.env.get_undefined()
 }
 
-fn call_anon_function(env: &Env) -> Result<()> {
-  let calling = unsafe { (*CallingBackFunc.0.get()).as_ref().unwrap() };
-
-  let mut raw_ref = ptr::null_mut();
-  let _ = unsafe { napi::sys::napi_get_reference_value(env.raw(), calling.reffing, &mut raw_ref) };
-  let undef = unsafe { env.get_undefined()?.raw() };
-
-  let mut resulting = ptr::null_mut();
-  unsafe {
-    napi::sys::napi_call_function(env.raw(), undef, raw_ref, 0, ptr::null_mut(), &mut resulting);
-  }
-  Ok(())
-}
-
+#[inline]
 #[contextless_function]
 pub fn get_event_loop(env: Env) -> ContextlessResult<JsUndefined> {
-  call_anon_function(&env)?;
+  let result = messagebus::get_reader();
+
+  while let Ok(found) = result.recv() {
+    unsafe { found.call_method(&env)?; }
+  }
 
   env.get_undefined().map(Some)
 }

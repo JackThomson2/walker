@@ -1,9 +1,7 @@
-use std::sync::RwLock;
+use std::{sync::{RwLock, atomic::AtomicBool, Mutex}, cell::UnsafeCell, mem::MaybeUninit};
 
 use matchit::Router;
-use napi::bindgen_prelude::*;
-
-use lazy_static::lazy_static;
+use napi::{bindgen_prelude::*, sys::napi_ref};
 
 use crate::{types::CallBackFunction, Methods};
 
@@ -11,9 +9,32 @@ use super::{read_only::{write_reader, ReadRoutes}, ReaderLookup};
 
 type ThreadSafeLookup = RwLock<ReaderLookup>;
 
-lazy_static! {
-  static ref GLOBAL_DATA: InternalRoutes = InternalRoutes::new_manager();
+struct InternalRouter(UnsafeCell<MaybeUninit<InternalRoutes>>);
+
+unsafe impl Sync for InternalRouter {}
+
+static GLOBAL_DATA: InternalRouter = InternalRouter(UnsafeCell::new(MaybeUninit::uninit()));
+static INITED: Mutex<bool> = Mutex::new(false);
+
+#[cold]
+fn init_globals() {
+  let manager = InternalRoutes::new_manager();
+  let global_store = unsafe { &mut *GLOBAL_DATA.0.get() };
+  *global_store = MaybeUninit::new(manager);
 }
+
+fn get_global() -> &'static InternalRoutes {
+  let mut initialised = INITED.lock().unwrap();
+
+  if !*initialised {
+    init_globals();
+    *initialised = true;
+  }
+
+  drop(initialised);
+
+  unsafe { &*(*GLOBAL_DATA.0.get()).as_ptr() }
+} 
 
 pub fn thread_to_reader(input: &ThreadSafeLookup) -> ReaderLookup {
   let reader = input.read().unwrap();
@@ -65,14 +86,16 @@ impl InternalRoutes {
 
 #[cold]
 pub fn initialise_reader() {
-  let new_reader = GLOBAL_DATA.as_reader_type();
+  let globo_data = get_global();
+  let new_reader = globo_data.as_reader_type();
 
   write_reader(new_reader);
 }
 
 #[cold]
-pub fn add_new_route(route: &str, method: Methods, function: CallBackFunction) -> Result<()> {
-  let lock = GLOBAL_DATA.get_rw_from_method(method);
+pub fn add_new_route(route: &str, method: Methods, function: napi_ref) -> Result<()> {
+  let globo_data = get_global();
+  let lock = globo_data.get_rw_from_method(method);
   let mut writing = lock
     .write()
     .map_err(|_| Error::new(Status::GenericFailure, "Error inserting route".to_string()))?;

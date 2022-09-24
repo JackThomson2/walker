@@ -1,14 +1,15 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit, collections::HashMap};
 
 use matchit::Params;
+use napi::sys::napi_ref;
 
-use crate::{types::CallBackFunction, Methods};
+use crate::Methods;
 
 use super::ReaderLookup;
 
 struct RouteCell(UnsafeCell<MaybeUninit<ReadRoutes>>);
 
-unsafe impl Sync for RouteCell where ReadRoutes: Sync {}
+unsafe impl Sync for RouteCell {}
 
 static ROUTER: RouteCell = RouteCell(UnsafeCell::new(MaybeUninit::uninit()));
 
@@ -45,7 +46,7 @@ fn get_routers() -> &'static ReadRoutes {
 }
 
 #[inline(always)]
-pub fn get_route(route: &str, method: Methods) -> Option<&CallBackFunction> {
+pub fn get_route(route: &str, method: Methods) -> Option<&napi_ref> {
   let checking = get_routers().get_for_method(method);
   let found = checking.at(route);
 

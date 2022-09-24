@@ -1,6 +1,8 @@
-use napi::{bindgen_prelude::*, threadsafe_function::ThreadSafeCallContext};
+use napi::bindgen_prelude::*;
 
-use crate::{request::RequestBlob, router::store::add_new_route};
+use crate::router::store::add_new_route;
+
+use super::hackery::convert_js_func_to_shared_ref;
 
 #[napi]
 /// The different HTTP methods 
@@ -31,13 +33,10 @@ impl Methods {
 /// Use this to register a new route in the server, the callback function will be called
 /// once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
 /// needed to get the information from the request
-pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result<()> {
-  let tsfn =
-    callback.create_threadsafe_function(1024, |ctx: ThreadSafeCallContext<Vec<RequestBlob>>| {
-      Ok(ctx.value)
-    })?;
+pub fn new_route(env: Env, route: String, method: Methods, callback: JsFunction) -> Result<()> {
+  let shared_func_ref = unsafe { convert_js_func_to_shared_ref(&env, callback) };
 
-  add_new_route(&route, method, tsfn)?;
+  add_new_route(&route, method, shared_func_ref)?;
   
   Ok(())
 }
@@ -47,8 +46,8 @@ pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result
 /// Adds a handler for the a GET request
 /// once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
 /// needed to get the information from the request
-pub fn get(route: String, callback: JsFunction) -> Result<()> {
-  new_route(route, Methods::GET, callback)
+pub fn get(env: Env, route: String, callback: JsFunction) -> Result<()> {
+  new_route(env, route, Methods::GET, callback)
 }
 
 #[cold]
@@ -56,8 +55,8 @@ pub fn get(route: String, callback: JsFunction) -> Result<()> {
 /// Adds a handler for the a POST request
 /// once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
 /// needed to get the information from the request
-pub fn post(route: String, callback: JsFunction) -> Result<()> {
-  new_route(route, Methods::POST, callback)
+pub fn post(env: Env, route: String, callback: JsFunction) -> Result<()> {
+  new_route(env, route, Methods::POST, callback)
 }
 
 #[cold]
@@ -65,8 +64,8 @@ pub fn post(route: String, callback: JsFunction) -> Result<()> {
 /// Adds a handler for the a PUT request
 /// once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
 /// needed to get the information from the request
-pub fn put(route: String, callback: JsFunction) -> Result<()> {
-  new_route(route, Methods::PUT, callback)
+pub fn put(env: Env, route: String, callback: JsFunction) -> Result<()> {
+  new_route(env, route, Methods::PUT, callback)
 }
 
 #[cold]
@@ -74,6 +73,6 @@ pub fn put(route: String, callback: JsFunction) -> Result<()> {
 /// Adds a handler for the a PATCH request
 /// once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
 /// needed to get the information from the request
-pub fn patch(route: String, callback: JsFunction) -> Result<()> {
-  new_route(route, Methods::PATCH, callback)
+pub fn patch(env: Env, route: String, callback: JsFunction) -> Result<()> {
+  new_route(env, route, Methods::PATCH, callback)
 }

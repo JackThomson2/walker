@@ -1,24 +1,22 @@
 const Walker = require('.');
 
-let count = 1;
+const response = "Hello World"
+
+Walker.get("/", (res) => {
+    Walker.registerConst(res, response);
+});
+
+Walker.start("0.0.0.0:8081")
+
+console.time("CallNapi");
 
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function testOtherFunNow() {
-    return `hello world ${count++}`
-}
-
-const callMeNow = async () => {
-    await timeout(1);
-    console.log(`hello world ${count++}`);
-}
-
-Walker.registerConst(testOtherFunNow);
-
-console.time("CallNapi");
-for (let i = 0; i < 10_000_000; i++) {
-    Walker.eventLoop();
-}
-console.timeEnd("CallNapi");
+setTimeout(async () => {
+    while (true) {
+        await timeout(1);
+        setTimeout(Walker.eventLoop);
+    }
+}, 100);
