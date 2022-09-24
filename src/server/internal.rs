@@ -1,6 +1,7 @@
 use std::io;
-use std::time::Instant;
 
+use crate::eventloop::request::RequestData;
+use crate::messagebus::{self, init_pair};
 use crate::minihttp::{HttpServiceFactory, Request, HttpService, Response};
 
 use crate::router::read_only::get_route;
@@ -31,10 +32,11 @@ impl WalkerServer {
 
         let (send, rec) = channel();
         let msg_body = RequestBlob::new_with_route(req.clone(), send);
+        let request_data = RequestData::new(*result, msg_body);
 
-        let start = Instant::now();
-        result.call(vec![msg_body], napi::threadsafe_function::ThreadsafeFunctionCallMode::Blocking); 
-
+        let messagebus_sender = messagebus::get_sender();
+        messagebus_sender.send(request_data).unwrap();
+        
         let res = match rec.recv() {
             Some(res) => res,
             None => {
@@ -42,8 +44,6 @@ impl WalkerServer {
                 return;
             }
         };
-        let end = start.elapsed();
-        println!("Threadsafe func took {:?}", end);
         
         res.apply_to_response(rsp);
     }
@@ -84,6 +84,7 @@ fn run_server(address: String) {
 
 #[cold]
 pub fn start_server(address: String) {
+    init_pair();
     configure_may();
     initialise_reader();
 
