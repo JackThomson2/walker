@@ -1,12 +1,11 @@
 use bytes::Bytes;
 use actix_http::{Response, StatusCode, header::{CONTENT_TYPE, SERVER}};
 use http::HeaderValue;
-use napi::bindgen_prelude::Buffer;
 
 pub enum JsResponse {
     Text(Bytes),
     Json(Bytes),
-    TextBuffer(Buffer),
+    TextBuffer(Bytes),
     Raw(Bytes)
 }
 

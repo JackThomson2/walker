@@ -236,7 +236,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { DbPool, Methods, newRoute, get, post, put, patch, RequestBlob, start } = nativeBinding
+const { DbPool, Methods, newRoute, get, post, put, patch, RequestBlob, start, callMaFunction } = nativeBinding
 
 module.exports.DbPool = DbPool
 module.exports.Methods = Methods
@@ -247,3 +247,4 @@ module.exports.put = put
 module.exports.patch = patch
 module.exports.RequestBlob = RequestBlob
 module.exports.start = start
+module.exports.callMaFunction = callMaFunction

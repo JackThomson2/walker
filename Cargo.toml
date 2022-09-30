@@ -3,8 +3,8 @@ edition = "2021"
 name = "walker"
 version = "0.0.0"
 
-[lib]
-crate-type = ["cdylib"]
+#[lib]
+#crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
@@ -31,6 +31,7 @@ actix-rt = "2.7.0"
 actix-server = "2.1.1"
 async-oneshot = "0.5.0"
 async-hatch = { git = "https://github.com/irrustible/async-oneshot.git", branch = "async-hatch" }
+v8 = "0.51.0"
 
 [build-dependencies]
 napi-build = "2.0.1"

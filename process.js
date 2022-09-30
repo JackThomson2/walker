@@ -13,7 +13,7 @@ if (cluster.isPrimary) {
   console.log(`Primary ${process.pid} is running`);
 
   // Fork workers.
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 4; i++) {
     cluster.fork();
   }
 
@@ -22,7 +22,7 @@ if (cluster.isPrimary) {
   });
 } else {
     Walker.get("/", (res) => {
-        res.sendBytesText(buf);
+        res.sendText("Hello world");
     });
 
     Walker.get("/async", async (res) => {

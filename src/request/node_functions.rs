@@ -22,7 +22,7 @@ impl RequestBlob {
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_bytes_text(&mut self, response: Buffer) {
-    let message = JsResponse::TextBuffer(response);
+    let message = JsResponse::TextBuffer(Bytes::copy_from_slice(&response));
     self.oneshot.send(message).now().ok();
   }
 

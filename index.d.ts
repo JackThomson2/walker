@@ -46,6 +46,7 @@ export function patch(route: string, method: Methods, callback: (result: Request
  * e.g. localhost:8080
  */
 export function start(address: string): void
+export function callMaFunction(callback: (...args: any[]) => any): void
 export class DbPool {
   static new(url: string, number: number): this
   query(input: string): Promise<unknown>
