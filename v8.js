@@ -1,9 +1,11 @@
 let counter = 0;
 
-GET('/route', () => {
-    log("Hello from route 1");
+GET('/', (req) => {
+    return "Hello world"
+})
 
-    log(`Counter is ${++counter}`);
+GET('/counter', (req) => {
+    return `Count is ${++counter}`
 });
 
 GET('/route2', () => {

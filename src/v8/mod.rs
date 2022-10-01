@@ -1,10 +1,4 @@
-use std::{
-  cell::{RefCell, UnsafeCell},
-  ffi::c_void,
-  marker::PhantomData,
-  pin::Pin,
-  rc::Rc,
-};
+use std::{cell::RefCell, ffi::c_void, marker::PhantomData, pin::Pin, rc::Rc, time::Instant};
 
 use matchit::Router;
 
@@ -80,6 +74,11 @@ where
     self_
   }
 
+  pub fn prepare(&mut self) {
+    self.register_listeners();
+    self.run_script();
+  }
+
   pub fn register_listeners(&mut self) {
     let global = self.context.global(&mut self.context_scope);
     let func = v8::Function::new(
@@ -91,12 +90,6 @@ where
         let func = args.get(1);
 
         let function = v8::Local::<v8::Function>::try_from(func).expect("function expected");
-
-        println!(
-          "Function has been called, router is {}, function is {}",
-          path,
-          func.to_rust_string_lossy(scope)
-        );
 
         let key = v8::String::new(scope, ROUTER_GLOBAL).unwrap();
         let globo = scope.get_current_context().global(scope);
@@ -148,48 +141,35 @@ where
   }
 
   pub fn load_found_router(&mut self) {
-    let key = v8::String::new(&mut self.context_scope, ROUTER_GLOBAL).unwrap();
-    let globo = self
-      .context_scope
-      .get_current_context()
-      .global(&mut self.context_scope);
-    let router_global = globo
-      .get(&mut self.context_scope, key.into())
-      .unwrap()
-      .to_object(&mut self.context_scope)
-      .unwrap();
+    let reffing = self.router.borrow();
 
-    let native_router = unsafe {
-      Self::get_inner_router(&mut self.context_scope, router_global)
-        .as_mut()
-        .unwrap()
-    };
-
-    let reffing = native_router.router.borrow();
-    
-    let routes = vec!["/route", "/route2", "/route3"];
+    let routes = vec!["/route"];
 
     let scope = &mut v8::HandleScope::new(&mut self.context_scope);
     let try_catch = &mut v8::TryCatch::new(scope);
     let global = self.context.global(try_catch).into();
 
     for route in routes {
-        let found = reffing.at(route).unwrap();
+      let found = reffing.at(route).unwrap();
 
-        if found.value.open(try_catch)
-            .call(try_catch, global, &[])
-            .is_none()
-        {
-            let exception = try_catch.exception().unwrap();
-            let exception_string = exception
-                .to_string(try_catch)
-                .unwrap()
-                .to_rust_string_lossy(try_catch);
+      let funct = found.value.open(try_catch);
+      let start = Instant::now();
 
-            panic!("{}", exception_string);
+      for _ in 0..10_000_000 {
+        if funct.call(try_catch, global, &[]).is_none() {
+          println!("Something went wrong...");
         }
+      }
+
+      println!("This took {:?}", start.elapsed());
     }
 
+    let found = reffing.at("/route2").unwrap();
+
+    let funct = found.value.open(try_catch);
+    if funct.call(try_catch, global, &[]).is_none() {
+      println!("Something went wrong...");
+    }
   }
 
   fn get_inner_router<'a>(
@@ -199,6 +179,23 @@ where
     let external = request.get_internal_field(scope, 0).unwrap();
     let external = unsafe { v8::Local::<v8::External>::cast(external) };
     external.value() as *mut Box<WalkerBuilder>
+  }
+
+  pub fn find_and_run_route(&mut self, route: &str) -> Option<String> {
+    let reffing = self.router.borrow();
+    let found = match reffing.at(route) {
+      Ok(r) => r,
+      Err(_) => return None
+    };
+
+    let scope = &mut v8::HandleScope::new(&mut self.context_scope);
+    let try_catch = &mut v8::TryCatch::new(scope);
+    let global = self.context.global(try_catch).into();
+    let funct = found.value.open(try_catch);
+
+    let found = funct.call(try_catch, global, &[])?;
+
+    Some(found.to_rust_string_lossy(try_catch))
   }
 }
 

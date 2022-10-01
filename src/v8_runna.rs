@@ -1,6 +1,12 @@
-use std::thread;
+use std::{thread, marker::PhantomData};
 
 use crate::v8::State;
+
+pub fn start_platform() {
+  let platform = v8::new_default_platform(0, false).make_shared();
+  v8::V8::initialize_platform(platform);
+  v8::V8::initialize();
+}
 
 pub fn do_some_cray_shit(function: String) {
   let platform = v8::new_default_platform(0, false).make_shared();
@@ -8,7 +14,7 @@ pub fn do_some_cray_shit(function: String) {
   v8::V8::initialize();
 
   thread::scope(|s| {
-    for _ in 0..64 {
+    for _ in 0..16 {
       let f = function.clone();
       s.spawn(move || run_in_thread(f));
     }
@@ -16,13 +22,12 @@ pub fn do_some_cray_shit(function: String) {
 }
 
 pub fn do_less_crazy_shit(function: String) {
-    let platform = v8::new_default_platform(0, false).make_shared();
-    v8::V8::initialize_platform(platform);
-    v8::V8::initialize();
-  
-    run_in_thread(function);
-  }
-  
+  let platform = v8::new_default_platform(0, false).make_shared();
+  v8::V8::initialize_platform(platform);
+  v8::V8::initialize();
+
+  run_in_thread(function);
+}
 
 fn run_in_thread(function: String) {
   let mut isolate = v8::Isolate::new(v8::CreateParams::default());
