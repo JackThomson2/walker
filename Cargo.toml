@@ -10,6 +10,7 @@ bytes = "1.2.1"
 serde_json = "1.0.85"
 itoa = "1.0.3"
 tokio = { version = "1", features = [
+  "full",
   "fs",
   "io-util",
   "io-std",
@@ -27,9 +28,10 @@ hyper = { version = "0.14.20", features = [
     "http1",
     "http2",
     "server",
+    "tcp"
 ] }
-http-body-util = { git = "https://github.com/hyperium/http-body", rev = "6d7dd17" }
 async-scoped = "0.7.0"
+flume = "0.10.14"
 
 [build-dependencies]
 napi-build = "2.0.1"

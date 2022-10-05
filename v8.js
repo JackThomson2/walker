@@ -1,7 +1,7 @@
 let counter = 0;
 
 GET('/', (req) => {
-    return "Hello world"
+    return "Hello world from v8"
 })
 
 GET('/counter', (req) => {

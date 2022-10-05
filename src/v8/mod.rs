@@ -135,9 +135,7 @@ where
         .to_rust_string_lossy(try_catch);
 
       panic!("{}", exception_string);
-    } else {
-      println!("Script ran successfully...");
-    }
+    } 
   }
 
   pub fn load_found_router(&mut self) {
@@ -172,6 +170,7 @@ where
     }
   }
 
+  #[inline]
   fn get_inner_router<'a>(
     scope: &mut v8::HandleScope,
     request: v8::Local<'a, v8::Object>,
@@ -181,6 +180,7 @@ where
     external.value() as *mut Box<WalkerBuilder>
   }
 
+  #[inline]
   pub fn find_and_run_route(&mut self, route: &str) -> Option<String> {
     let reffing = self.router.borrow();
     let found = match reffing.at(route) {
@@ -188,14 +188,12 @@ where
       Err(_) => return None
     };
 
-    let scope = &mut v8::HandleScope::new(&mut self.context_scope);
-    let try_catch = &mut v8::TryCatch::new(scope);
-    let global = self.context.global(try_catch).into();
-    let funct = found.value.open(try_catch);
+    let global = self.context.global(&mut self.context_scope).into();
+    let funct = found.value.open(&mut self.context_scope);
 
-    let found = funct.call(try_catch, global, &[])?;
+    let found = funct.call(&mut self.context_scope, global, &[])?;
 
-    Some(found.to_rust_string_lossy(try_catch))
+    Some(found.to_rust_string_lossy(&mut self.context_scope))
   }
 }
 
