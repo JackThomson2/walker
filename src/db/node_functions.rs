@@ -1,122 +1,85 @@
-use std::sync::{atomic::AtomicUsize, Arc};
 
-use may::{
-  coroutine::{self, yield_now},
-  go,
-};
-use may_postgres::{Client, SimpleQueryMessage};
-use napi::bindgen_prelude::*;
-
-#[napi]
-pub struct DbPool {
-  idx: AtomicUsize,
-  clients: Vec<Arc<Client>>,
-  number: usize,
+pub fn postgres_row_to_json_value(row: Row) -> Result<JSONValue, Error> {
+  let row_data = postgres_row_to_row_data(row)?;
+  Ok(JSONValue::Object(row_data))
 }
 
-fn create_client(url: &str) -> Result<Client> {
-  may_postgres::connect(url).map_err(|e| Error::new(Status::GenericFailure, e.to_string()))
+// some type-aliases I use in my project
+pub type JSONValue = serde_json::Value;
+pub type RowData = Map<String, JSONValue>;
+pub type Error = anyhow::Error; // from: https://github.com/dtolnay/anyhow
+
+pub fn postgres_row_to_row_data(row: Row) -> Result<RowData, Error> {
+  let mut result: Map<String, JSONValue> = Map::new();
+  for (i, column) in row.columns().iter().enumerate() {
+      let name = column.name();
+      let json_value = pg_cell_to_json_value(&row, column, i)?;
+      result.insert(name.to_string(), json_value);
+  }
+  Ok(result)
 }
 
-#[napi]
-impl DbPool {
-  #[napi]
-  pub fn new(url: String, number: i64) -> Result<Self> {
-    let number = (number as usize).next_power_of_two();
-    let mut clients = Vec::with_capacity(number);
-    for _ in 0..number {
-      let client = create_client(&url)?;
-      clients.push(Arc::new(client));
-    }
+pub fn pg_cell_to_json_value(row: &Row, column: &Column, column_i: usize) -> Result<JSONValue, Error> {
+  let f64_to_json_number = |raw_val: f64| -> Result<JSONValue, Error> {
+      let temp = serde_json::Number::from_f64(raw_val.into()).ok_or(anyhow!("invalid json-float"))?;
+      Ok(JSONValue::Number(temp))
+  };
+  Ok(match *column.type_() {
+      // for rust-postgres <> postgres type-mappings: https://docs.rs/postgres/latest/postgres/types/trait.FromSql.html#types
+      // for postgres types: https://www.postgresql.org/docs/7.4/datatype.html#DATATYPE-TABLE
 
-    Ok(DbPool {
-      idx: AtomicUsize::new(0),
-      clients,
-      number: number - 1,
-    })
-  }
+      // single types
+      Type::BOOL => get_basic(row, column, column_i, |a: bool| Ok(JSONValue::Bool(a)))?,
+      Type::INT2 => get_basic(row, column, column_i, |a: i16| Ok(JSONValue::Number(serde_json::Number::from(a))))?,
+      Type::INT4 => get_basic(row, column, column_i, |a: i32| Ok(JSONValue::Number(serde_json::Number::from(a))))?,
+      Type::INT8 => get_basic(row, column, column_i, |a: i64| Ok(JSONValue::Number(serde_json::Number::from(a))))?,
+      Type::TEXT | Type::VARCHAR => get_basic(row, column, column_i, |a: String| Ok(JSONValue::String(a)))?,
+      Type::JSON | Type::JSONB => get_basic(row, column, column_i, |a: JSONValue| Ok(a))?,
+      Type::FLOAT4 => get_basic(row, column, column_i, |a: f32| Ok(f64_to_json_number(a.into())?))?,
+      Type::FLOAT8 => get_basic(row, column, column_i, |a: f64| Ok(f64_to_json_number(a)?))?,
+      // these types require a custom StringCollector struct as an intermediary (see struct at bottom)
+      Type::TS_VECTOR => get_basic(row, column, column_i, |a: StringCollector| Ok(JSONValue::String(a.0)))?,
 
-  #[inline]
-  fn get_next_client(&self) -> Arc<Client> {
-    let idx = self.idx.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    unsafe { self.clients.get_unchecked(idx & self.number).clone() }
-  }
+      // array types
+      Type::BOOL_ARRAY => get_array(row, column, column_i, |a: bool| Ok(JSONValue::Bool(a)))?,
+      Type::INT2_ARRAY => get_array(row, column, column_i, |a: i16| Ok(JSONValue::Number(serde_json::Number::from(a))))?,
+      Type::INT4_ARRAY => get_array(row, column, column_i, |a: i32| Ok(JSONValue::Number(serde_json::Number::from(a))))?,
+      Type::INT8_ARRAY => get_array(row, column, column_i, |a: i64| Ok(JSONValue::Number(serde_json::Number::from(a))))?,
+      Type::TEXT_ARRAY | Type::VARCHAR_ARRAY => get_array(row, column, column_i, |a: String| Ok(JSONValue::String(a)))?,
+      Type::JSON_ARRAY | Type::JSONB_ARRAY => get_array(row, column, column_i, |a: JSONValue| Ok(a))?,
+      Type::FLOAT4_ARRAY => get_array(row, column, column_i, |a: f32| Ok(f64_to_json_number(a.into())?))?,
+      Type::FLOAT8_ARRAY => get_array(row, column, column_i, |a: f64| Ok(f64_to_json_number(a)?))?,
+      // these types require a custom StringCollector struct as an intermediary (see struct at bottom)
+      Type::TS_VECTOR_ARRAY => get_array(row, column, column_i, |a: StringCollector| Ok(JSONValue::String(a.0)))?,
 
-  #[napi]
-  pub fn query(&self, input: String) -> AsyncTask<DbGetter> {
-    AsyncTask::new(DbGetter {
-      client: self.get_next_client(),
-      input: vec![input],
-    })
-  }
-
-  #[napi]
-  pub fn multi_query(&self, input: Vec<String>) -> AsyncTask<DbGetter> {
-    AsyncTask::new(DbGetter {
-      client: self.get_next_client(),
-      input,
-    })
-  }
+      _ => anyhow::bail!("Cannot convert pg-cell \"{}\" of type \"{}\" to a JSONValue.", column.name(), column.type_().name()),
+  })
 }
 
-pub struct DbGetter {
-  client: Arc<Client>,
-  input: Vec<String>,
+fn get_basic<'a, T: FromSql<'a>>(row: &'a Row, column: &Column, column_i: usize, val_to_json_val: impl Fn(T) -> Result<JSONValue, Error>) -> Result<JSONValue, Error> {
+  let raw_val = row.try_get::<_, Option<T>>(column_i).with_context(|| format!("column_name:{}", column.name()))?;
+  raw_val.map_or(Ok(JSONValue::Null), val_to_json_val)
+}
+fn get_array<'a, T: FromSql<'a>>(row: &'a Row, column: &Column, column_i: usize, val_to_json_val: impl Fn(T) -> Result<JSONValue, Error>) -> Result<JSONValue, Error> {
+  let raw_val_array = row.try_get::<_, Option<Vec<T>>>(column_i).with_context(|| format!("column_name:{}", column.name()))?;
+  Ok(match raw_val_array {
+      Some(val_array) => {
+          let mut result = vec![];
+          for val in val_array {
+              result.push(val_to_json_val(val)?);
+          }
+          JSONValue::Array(result)
+      },
+      None => JSONValue::Null,
+  })
 }
 
-impl DbGetter {
-  #[inline]
-  fn query_all(&self, query: &str) -> Vec<Vec<String>> {
-    let res = self.client.simple_query(query).unwrap();
-
-    let mut resulting: Vec<Vec<String>> = Vec::with_capacity(res.len());
-
-    for i in res {
-      if let SimpleQueryMessage::Row(res) = i {
-        let mut adding = Vec::with_capacity(res.len());
-
-        for i in 0..res.len() {
-          adding.push(res.get(i).unwrap().to_string());
-        }
-
-        resulting.push(adding);
-      }
-    }
-
-    resulting
+// you can remove this section if not using TS_VECTOR (or other types requiring an intermediary `FromSQL` struct)
+struct StringCollector(String);
+impl FromSql<'_> for StringCollector {
+  fn from_sql(_: &Type, raw: &[u8]) -> Result<StringCollector, Box<dyn std::error::Error + Sync + Send>> {
+      let result = std::str::from_utf8(raw)?;
+      Ok(StringCollector(result.to_owned()))
   }
-
-  #[inline]
-  fn query_all_client(&self) -> Vec<Vec<Vec<String>>> {
-    let mut resulting: Vec<Vec<Vec<String>>> = Vec::with_capacity(self.input.len());
-
-    coroutine::scope(|scope| {
-      let v = self
-        .input
-        .iter()
-        .map(|i| go!(scope, || { self.query_all(i) }))
-        .collect::<Vec<_>>();
-      yield_now();
-      // wait child finish
-      for i in v {
-        resulting.push(i.join());
-      }
-    });
-
-    resulting
-  }
-}
-
-#[napi]
-impl Task for DbGetter {
-  type Output = Vec<Vec<Vec<String>>>;
-  type JsValue = Vec<Vec<Vec<String>>>;
-
-  fn compute(&mut self) -> Result<Self::Output> {
-    Ok(self.query_all_client())
-  }
-
-  fn resolve(&mut self, _: Env, output: Vec<Vec<Vec<String>>>) -> Result<Self::JsValue> {
-    Ok(output)
-  }
+  fn accepts(_ty: &Type) -> bool { true }
 }
