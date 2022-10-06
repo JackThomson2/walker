@@ -1,0 +1,207 @@
+// Fork of threadsafe_function from napi-rs that allows calling JS function manually rather than
+// only returning args. This enables us to use the return value of the function.
+
+#![allow(clippy::single_component_path_imports)]
+
+use std::convert::Into;
+use std::ffi::CString;
+use std::marker::PhantomData;
+use std::os::raw::c_void;
+use std::ptr;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+
+use napi::{check_status, sys, Result, Status};
+use napi::bindgen_prelude::ToNapiValue;
+
+
+#[repr(u8)]
+pub enum ThreadsafeFunctionCallMode {
+  NonBlocking,
+  Blocking,
+}
+
+impl From<ThreadsafeFunctionCallMode> for sys::napi_threadsafe_function_call_mode {
+  fn from(value: ThreadsafeFunctionCallMode) -> Self {
+    match value {
+      ThreadsafeFunctionCallMode::Blocking => sys::ThreadsafeFunctionCallMode::blocking,
+      ThreadsafeFunctionCallMode::NonBlocking => sys::ThreadsafeFunctionCallMode::nonblocking,
+    }
+  }
+}
+
+/// Communicate with the addon's main thread by invoking a JavaScript function from other threads.
+///
+/// ## Example
+/// An example of using `ThreadsafeFunction`:
+///
+/// ```rust
+/// #[macro_use]
+/// extern crate napi_derive;
+///
+/// use std::thread;
+///
+/// use napi::{
+///     threadsafe_function::{
+///         ThreadSafeCallContext, ThreadsafeFunctionCallMode, ThreadsafeFunctionReleaseMode,
+///     },
+///     CallContext, Error, JsFunction, JsNumber, JsUndefined, Result, Status,
+/// };
+///
+/// #[js_function(1)]
+/// pub fn test_threadsafe_function(ctx: CallContext) -> Result<JsUndefined> {
+///   let func = ctx.get::<JsFunction>(0)?;
+///
+///   let tsfn =
+///       ctx
+///           .env
+///           .create_threadsafe_function(&func, 0, |ctx: ThreadSafeCallContext<Vec<u32>>| {
+///             ctx.value
+///                 .iter()
+///                 .map(|v| ctx.env.create_uint32(*v))
+///                 .collect::<Result<Vec<JsNumber>>>()
+///           })?;
+///
+///   let tsfn_cloned = tsfn.clone();
+///
+///   thread::spawn(move || {
+///       let output: Vec<u32> = vec![0, 1, 2, 3];
+///       // It's okay to call a threadsafe function multiple times.
+///       tsfn.call(Ok(output.clone()), ThreadsafeFunctionCallMode::Blocking);
+///   });
+///
+///   thread::spawn(move || {
+///       let output: Vec<u32> = vec![3, 2, 1, 0];
+///       // It's okay to call a threadsafe function multiple times.
+///       tsfn_cloned.call(Ok(output.clone()), ThreadsafeFunctionCallMode::NonBlocking);
+///   });
+///
+///   ctx.env.get_undefined()
+/// }
+/// ```
+pub struct ThreadsafeFunction<T: 'static> {
+  raw_tsfn: sys::napi_threadsafe_function,
+  ref_count: Arc<AtomicUsize>,
+  _phantom: PhantomData<T>,
+}
+
+impl<T: 'static> Clone for ThreadsafeFunction<T> {
+  fn clone(&self) -> Self {
+    Self {
+      raw_tsfn: self.raw_tsfn,
+      ref_count: Arc::clone(&self.ref_count),
+      _phantom: PhantomData,
+    }
+  }
+}
+
+unsafe impl<T> Send for ThreadsafeFunction<T> {}
+unsafe impl<T> Sync for ThreadsafeFunction<T> {}
+
+impl<T: 'static + ToNapiValue> ThreadsafeFunction<T> {
+  /// See [napi_create_threadsafe_function](https://nodejs.org/api/n-api.html#n_api_napi_create_threadsafe_function)
+  /// for more information.
+  pub(crate) fn create(
+    env: sys::napi_env,
+    func: sys::napi_value,
+    max_queue_size: usize
+  ) -> Result<Self> {
+    let mut async_resource_name = ptr::null_mut();
+    let s = "napi_rs_threadsafe_function";
+    let len = s.len();
+    let s = CString::new(s)?;
+    check_status!(unsafe { sys::napi_create_string_utf8(env, s.as_ptr(), len, &mut async_resource_name) })?;
+
+    let initial_thread_count = 1usize;
+    let mut raw_tsfn = ptr::null_mut();
+    let ptr = ptr::null_mut();
+    check_status!(unsafe {
+      sys::napi_create_threadsafe_function(
+        env,
+        func,
+        ptr::null_mut(),
+        async_resource_name,
+        max_queue_size,
+        initial_thread_count,
+        ptr,
+        Some(thread_finalize_cb::<T>),
+        ptr,
+        Some(call_js_cb::<T>),
+        &mut raw_tsfn,
+      )
+    })?;
+
+    Ok(ThreadsafeFunction {
+      raw_tsfn,
+      ref_count: Arc::new(AtomicUsize::new(initial_thread_count)),
+      _phantom: PhantomData,
+    })
+  }
+}
+
+
+impl<T: 'static> ThreadsafeFunction<T> {
+  /// See [napi_call_threadsafe_function](https://nodejs.org/api/n-api.html#n_api_napi_call_threadsafe_function)
+  /// for more information.
+  #[inline(always)]
+  pub fn call(&self, value: T, mode: ThreadsafeFunctionCallMode) -> Status {
+    unsafe {
+      sys::napi_call_threadsafe_function(self.raw_tsfn, Box::into_raw(Box::new(value)) as *mut _, mode.into())
+    }
+    .into()
+  }
+}
+
+impl<T: 'static> Drop for ThreadsafeFunction<T> {
+  fn drop(&mut self) {
+    if self.ref_count.load(Ordering::Acquire) > 0usize {
+      let release_status = unsafe {
+        sys::napi_release_threadsafe_function(self.raw_tsfn, sys::ThreadsafeFunctionReleaseMode::release)
+      };
+      assert!(
+        release_status == sys::Status::napi_ok,
+        "Threadsafe Function release failed"
+      );
+    }
+  }
+}
+
+unsafe extern "C" fn thread_finalize_cb<T: 'static>(
+  _raw_env: sys::napi_env,
+  _finalize_data: *mut c_void,
+  _finalize_hint: *mut c_void,
+) {
+  // cleanup
+  //v drop(Box::<R>::from_raw(finalize_data.cast()));
+}
+
+#[inline(always)]
+unsafe extern "C" fn call_js_cb<T: 'static + ToNapiValue>(
+  raw_env: sys::napi_env,
+  js_callback: sys::napi_value,
+  _context: *mut c_void,
+  data: *mut c_void,
+) {
+  // env and/or callback can be null when shutting down
+  if raw_env.is_null() || js_callback.is_null() {
+    return;
+  }
+
+  let val: T = *Box::<T>::from_raw(data.cast());
+  let mut recv = ptr::null_mut();
+  sys::napi_get_undefined(raw_env, &mut recv);
+
+  let mut result = ptr::null_mut();
+
+  let args = [ToNapiValue::to_napi_value(raw_env, val).unwrap()];
+ 
+  sys::napi_call_function(
+    raw_env,
+    recv,
+    js_callback,
+    1,
+    args.as_ptr(),
+    &mut result,
+  );
+}
+

@@ -1,17 +1,13 @@
-use actix_http::{
-  body::BoxBody,
-  header::{CONTENT_TYPE, SERVER},
-  HttpService, Request, Response, StatusCode,
-};
+use actix_http::{body::BoxBody, HttpService, Request, Response};
 use actix_server::Server;
 use actix_service::{Service, ServiceFactory};
 use async_hatch::oneshot;
 use bytes::Bytes;
-use futures::future::{ok, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 use http::HeaderValue;
 
 use crate::{
-  request::{response::JsResponse, RequestBlob},
+  request::RequestBlob,
   router::{read_only::get_route, store::initialise_reader},
   Methods,
 };
@@ -26,9 +22,11 @@ impl From<Error> for Response<BoxBody> {
 }
 
 struct ActixHttpServer {
-  hdr_srv: HeaderValue,
+  _hdr_srv: HeaderValue,
 }
 
+#[cold]
+#[inline(never)]
 fn get_failed_message() -> Result<Response<Bytes>, Error> {
   Ok(Response::with_body(
     http::StatusCode::NOT_FOUND,
@@ -46,7 +44,7 @@ impl Service<Request> for ActixHttpServer {
   #[inline(always)]
   fn call(&self, req: Request) -> Self::Future {
     Box::pin(async move {
-      let method = match Methods::convert_from_str("GET") {
+      let method = match Methods::convert_from_str(req.method().as_str()) {
         Some(res) => res,
         None => {
           return get_failed_message();
@@ -64,9 +62,12 @@ impl Service<Request> for ActixHttpServer {
       let msg_body = RequestBlob::new_with_route(req, send);
 
       result.call(
-        vec![msg_body],
-        napi::threadsafe_function::ThreadsafeFunctionCallMode::NonBlocking,
+        msg_body,
+        crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
       );
+
+      // We'll hand back to the tokio scheduler for now as we don't expect an instant response here
+      tokio::task::yield_now().await;
 
       match rec.close_on_receive(true).receive().await {
         Ok(res) => Ok(res.apply_to_response()),
@@ -90,7 +91,7 @@ impl ServiceFactory<Request> for AppFactory {
   fn new_service(&self, _: ()) -> Self::Future {
     Box::pin(async move {
       Ok(ActixHttpServer {
-        hdr_srv: HeaderValue::from_static("Walker"),
+        _hdr_srv: HeaderValue::from_static("Walker"),
       })
     })
   }
@@ -100,10 +101,7 @@ fn run_server(address: String) -> std::io::Result<()> {
   actix_rt::System::new().block_on(
     Server::build()
       .bind("walker_server_h1", &address, || {
-        HttpService::build().h1(AppFactory).tcp()
-      })?
-      .bind("walker_server_h2", &address, || {
-        HttpService::build().h2(AppFactory).tcp()
+        HttpService::build().finish(AppFactory).tcp()
       })?
       .run(),
   )

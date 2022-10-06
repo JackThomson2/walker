@@ -16,6 +16,10 @@ Walker.get("/", (res) => {
     res.sendText(response);
 });
 
+Walker.get("/return text", (res) => {
+    res.sendText(response);
+});
+
 Walker.get("/t", (res) => {
     res.sendText(response);
 });
@@ -26,6 +30,18 @@ Walker.get("/b", (res) => {
 
 Walker.get("/counter", (res) => {
     res.sendText(`Counter is : ${++counter}`);
+});
+
+Walker.post("/body", async (res) => {
+    let bytes = res.getBody();
+
+    res.sendBytesText(bytes);
+});
+
+Walker.get("/headers", (res) => {
+    let count = res.headerLength();
+    let found = res.getHeader("Accept");
+    res.sendText(`We have ${count} headers accept header is ${found}`);
 });
 
 Walker.get("/json", (res) => {
