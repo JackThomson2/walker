@@ -1,5 +1,3 @@
-use napi::{threadsafe_function::{ThreadsafeFunction, ErrorStrategy}};
+use crate::{request::RequestBlob, napi::tsfn::ThreadsafeFunction};
 
-use crate::request::RequestBlob;
-
-pub type CallBackFunction = ThreadsafeFunction<Vec<RequestBlob>, ErrorStrategy::Fatal>;
+pub type CallBackFunction = ThreadsafeFunction<RequestBlob>;

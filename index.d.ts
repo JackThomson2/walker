@@ -46,11 +46,6 @@ export function patch(route: string, method: Methods, callback: (result: Request
  * e.g. localhost:8080
  */
 export function start(address: string): void
-export class DbPool {
-  static new(url: string, number: number): this
-  query(input: string): Promise<unknown>
-  multiQuery(input: Array<string>): Promise<unknown>
-}
 export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendText(response: string): void
@@ -63,6 +58,16 @@ export class RequestBlob {
    * this will only be null if an error has occurred
    */
   getParams(): Record<string, string> | null
+  /**
+   * Get the url parameters as an object with each key and value
+   * this will only be null if an error has occurred
+   */
+  headerLength(): number
+  /**
+   * Get the url parameters as an object with each key and value
+   * this will only be null if an error has occurred
+   */
+  getHeader(name: string): string | null
   /** Retrieve the raw body bytes in a Uint8Array to be used */
-  getBody(): Buffer
+  getBody(): Uint8Array
 }

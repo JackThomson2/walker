@@ -8,20 +8,23 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json"] }
+napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json", "async"] }
 napi-derive = "2.7.0"
-may = "0.3"
-may_postgres = { git = "https://github.com/Xudong-Huang/may_postgres.git" }
 matchit = "0.6"
 usync = "0.2"
 snmalloc-rs = { version = "*", features = ["build_cc"] }
 bytes = "1.2.1"
 serde_json = "1.0.85"
 lazy_static = "1.4.0"
-time = { version = "0.3", features = ["formatting"] }
-httparse = "1.8.0"
-log = "0.4.17"
-itoa = "1.0.3"
+tokio = { version = "1", features = ["full"] }
+actix-http = { version = "3.2", features = ["http2"]}
+actix-service = "2.0.2"
+futures = "0.3.24"
+http = "0.2.8"
+actix-rt = "2.7.0"
+actix-server = "2.1.1"
+async-hatch = { git = "https://github.com/irrustible/async-oneshot.git", branch = "async-hatch" }
+extreme = "666.666.666666"
 
 [build-dependencies]
 napi-build = "2.0.1"

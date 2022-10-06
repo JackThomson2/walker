@@ -44,7 +44,7 @@ fn get_routers() -> &'static ReadRoutes {
 }
 
 #[inline(always)]
-pub fn get_route(route: &str, method: Methods) -> Option<&CallBackFunction> {
+pub fn get_route(route: &str, method: Methods) -> Option<&'static CallBackFunction> {
   let checking = get_routers().get_for_method(method);
   let found = checking.at(route);
 

@@ -1,6 +1,6 @@
-use napi::{bindgen_prelude::*, threadsafe_function::ThreadSafeCallContext};
+use napi::bindgen_prelude::*;
 
-use crate::{request::RequestBlob, router::store::add_new_route};
+use crate::{router::store::add_new_route, napi::tsfn::ThreadsafeFunction};
 
 #[napi]
 /// The different HTTP methods 
@@ -32,10 +32,7 @@ impl Methods {
 /// once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
 /// needed to get the information from the request
 pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result<()> {
-  let tsfn =
-    callback.create_threadsafe_function(1024, |ctx: ThreadSafeCallContext<Vec<RequestBlob>>| {
-      Ok(ctx.value)
-    })?;
+  let tsfn = ThreadsafeFunction::create(callback.0.env, callback.0.value, 1024)?;
 
   add_new_route(&route, method, tsfn)?;
   
