@@ -1,52 +1,40 @@
+use actix_http::{
+  header::{CONTENT_TYPE, SERVER},
+  Response, StatusCode,
+};
 use bytes::Bytes;
-use actix_http::{Response, StatusCode, header::{CONTENT_TYPE, SERVER}};
 use http::HeaderValue;
-use napi::bindgen_prelude::Buffer;
 
 pub enum JsResponse {
-    Text(Bytes),
-    Json(Bytes),
-    TextBuffer(Buffer),
-    Raw(Bytes)
+  Text(Bytes),
+  Json(Bytes),
+  Raw(Bytes),
+  Template(Bytes),
 }
 
 impl JsResponse {
-    #[inline(always)]
-    fn apply_headers(&self, rsp: &mut Response<Bytes>) {
-        let message = match self {
-            Self::Text(_) | Self::TextBuffer(_)=> "Content-Type: text/plain",
-            Self::Json(_) => "Content-Type: application/json",
-            Self::Raw(_) => "Content-Type: application/octet-stream",
-        };
+  #[inline(always)]
+  pub fn apply_to_response(self) -> Response<Bytes> {
+    let message = match &self {
+      Self::Text(_) => "text/plain; charset=UTF-8",
+      Self::Json(_) => "application/json; charset=UTF-8",
+      Self::Raw(_) => "application/octet-stream",
+      Self::Template(_) => "text/html; charset=UTF-8"
+    };
 
-        let header = HeaderValue::from_static(message);
-        let server = HeaderValue::from_static("walker");
+    let mut rsp = match self {
+      Self::Text(message) | Self::Json(message) => Response::with_body(StatusCode::OK, message),
+      Self::Raw(data) | Self::Template(data) => Response::with_body(StatusCode::OK, data)
+    };
 
-        let hdrs = rsp.headers_mut();
-        hdrs.insert(SERVER, server);
-        hdrs.insert(CONTENT_TYPE, header);
-    }
+    let header = HeaderValue::from_static(message);
+    let server = HeaderValue::from_static("walker");
 
-    #[inline(always)]
-    fn apply_response(&self) -> Response<Bytes> {
-        match self {
-            Self::Text(message) | Self::Json(message) => {
-                Response::with_body(StatusCode::OK, message.clone())
-            },
-            Self::Raw(data) => {
-                Response::with_body(StatusCode::OK, data.clone())
-            },
-            Self::TextBuffer(buf) => {
-                Response::with_body(StatusCode::OK, Bytes::copy_from_slice(buf))
-            }
-        }
-    }
+    let hdrs = rsp.headers_mut();
 
-    #[inline(always)]
-    pub fn apply_to_response(&self) -> Response<Bytes> {
-        let mut res = self.apply_response();
-        self.apply_headers(&mut res);
+    hdrs.insert(SERVER, server);
+    hdrs.insert(CONTENT_TYPE, header);
 
-        res
-    }
+    rsp
+  }
 }

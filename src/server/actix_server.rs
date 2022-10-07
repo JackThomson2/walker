@@ -44,7 +44,7 @@ impl Service<Request> for ActixHttpServer {
   #[inline(always)]
   fn call(&self, req: Request) -> Self::Future {
     Box::pin(async move {
-      let method = match Methods::convert_from_str(req.method().as_str()) {
+      let method = match Methods::convert_from_actix(req.method().clone()) {
         Some(res) => res,
         None => {
           return get_failed_message();
@@ -100,9 +100,11 @@ impl ServiceFactory<Request> for AppFactory {
 fn run_server(address: String) -> std::io::Result<()> {
   actix_rt::System::new().block_on(
     Server::build()
+      .backlog(1024)
       .bind("walker_server_h1", &address, || {
         HttpService::build().finish(AppFactory).tcp()
       })?
+      .workers(4)
       .run(),
   )
 }
