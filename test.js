@@ -6,14 +6,28 @@ function timeout(ms) {
 
 const response = "Hello World"
 
-const buf = Buffer.from(response, 'utf8');
+const buf = new Uint8Array(Buffer.from(response, 'utf8'));
 
 let counter = 0;
 
 const pool = {}; // Walker.DbPool.new("postgresql://localhost:5432?user=postgres&password=test", 16);
 
+function do_resp(resp) {
+    resp.sendText(response);
+}
+
 Walker.get("/", (res) => {
     res.sendText(response);
+});
+
+Walker.get("/normalFunc", do_resp);
+
+Walker.get("/next_tick", (res) => {
+    process.nextTick(() => res.sendText(response));
+});
+
+Walker.get("/setImmediate", (res) => {
+    setImmediate(() => res.sendText(response));
 });
 
 Walker.get("/return text", (res) => {
@@ -38,6 +52,10 @@ Walker.post("/body", async (res) => {
     res.sendBytesText(bytes);
 });
 
+Walker.get("/no_resp", async (_) => {
+
+});
+
 Walker.get("/headers", (res) => {
     let count = res.headerLength();
     let found = res.getHeader("Accept");
@@ -52,6 +70,15 @@ Walker.get("/json", (res) => {
     });
 });
 
+Walker.get("/sjson", (res) => {
+    res.sendStringifiedObject(JSON.stringify({
+        hello: "world",
+        json: "HERE",
+        count: `Counter is : ${++counter}`
+    }));
+});
+
+
 Walker.get("/hello/:name", (res) => {
     const params = res.getParams();
     res.sendText(`Hello ${params.name}`);
@@ -60,6 +87,12 @@ Walker.get("/hello/:name", (res) => {
 Walker.get("/async", async (res) => {
     await timeout(1);
     res.sendText("Hello world");
+});
+
+Walker.get("/timeout", (res) => {
+    setTimeout(() => {
+        res.sendText(response);
+    }, 1);
 });
 
 Walker.get('/db_call', async (res) => {

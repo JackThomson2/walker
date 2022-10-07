@@ -100,9 +100,11 @@ impl ServiceFactory<Request> for AppFactory {
 fn run_server(address: String) -> std::io::Result<()> {
   actix_rt::System::new().block_on(
     Server::build()
+      .backlog(1024)
       .bind("walker_server_h1", &address, || {
         HttpService::build().finish(AppFactory).tcp()
       })?
+      .workers(4)
       .run(),
   )
 }

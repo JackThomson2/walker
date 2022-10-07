@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::StreamExt;
 use napi::{
-  bindgen_prelude::{Buffer, Uint8Array}, Error, Result, Status,
+  bindgen_prelude::{Uint8Array}, Error, Result, Status,
 };
 use serde_json::Value;
 
 use crate::{request::RequestBlob, Methods};
 
-use super::response::JsResponse;
+use super::{response::JsResponse, writer::Writer};
 
 #[napi]
 impl RequestBlob {
@@ -18,36 +18,46 @@ impl RequestBlob {
   /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_text(&mut self, response: String) {
     let message = JsResponse::Text(Bytes::copy_from_slice(response.as_bytes()));
-    self.oneshot.send(message).now().ok();
+    self.oneshot.set_close_on_send(true).send(message).now().ok();
+    self.sent = true;
   }
 
   #[inline(always)]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_bytes_text(&mut self, response: Buffer) {
-    let message = JsResponse::TextBuffer(response);
-    self.oneshot.send(message).now().ok();
+  pub fn send_bytes_text(&mut self, response: Uint8Array) {
+    let message = JsResponse::Text(Bytes::copy_from_slice(&response));
+    self.oneshot.set_close_on_send(true).send(message).now().ok();
+    self.sent = true;
   }
 
   #[inline(always)]
   #[napi]
   /// This needs to be called at the end of every request even if nothing is returned
   pub fn send_object(&mut self, response: Value) -> Result<()> {
-    let bytes = BytesMut::with_capacity(100);
-    let mut writer = bytes.writer();
+    let mut bytes = BytesMut::with_capacity(1024);
 
-    if serde_json::to_writer(&mut writer, &response).is_err() {
+    if serde_json::to_writer(&mut Writer(&mut bytes), &response).is_err() {
       return Err(Error::new(
         Status::GenericFailure,
         "Unable to send response".to_string(),
       ));
     };
 
-    let bytes = writer.into_inner();
     let message = JsResponse::Json(bytes.freeze());
 
-    self.oneshot.send(message).now().ok();
+    self.oneshot.set_close_on_send(true).send(message).now().ok();
+    self.sent = true;
     Ok(())
+  }
+
+  #[inline(always)]
+  #[napi]
+  /// This needs to be called at the end of every request even if nothing is returned
+  pub fn send_stringified_object(&mut self, response: String) {
+    let message = JsResponse::Json(Bytes::copy_from_slice(response.as_bytes()));
+    self.oneshot.set_close_on_send(true).send(message).now().ok();
+    self.sent = true;
   }
 
   #[inline(always)]
