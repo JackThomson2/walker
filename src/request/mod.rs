@@ -1,7 +1,7 @@
 use actix_http::Request;
 use async_hatch::{hatch::Hatch, Sender};
 use bytes::Bytes;
-use napi::{bindgen_prelude::{ObjectFinalize, External, Buffer}, Env, Result};
+use napi::{bindgen_prelude::ObjectFinalize, Env, Result};
 
 use self::response::JsResponse;
 
@@ -13,7 +13,8 @@ mod writer;
 pub struct RequestBlob {
   data: Request,
   oneshot: Sender<JsResponse, Box<Hatch<JsResponse>>>,
-  sent: bool
+  sent: bool,
+  body: Option<Bytes>
 }
 
 impl RequestBlob {
@@ -25,7 +26,8 @@ impl RequestBlob {
     Self {
       data,
       oneshot,
-      sent: false
+      sent: false,
+      body: None,
     }
   }
 }

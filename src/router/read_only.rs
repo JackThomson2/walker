@@ -1,6 +1,6 @@
-use std::{cell::UnsafeCell, mem::MaybeUninit, collections::HashMap};
+use std::{cell::UnsafeCell, mem::MaybeUninit};
 
-use matchit::{Router, Params};
+use matchit::Router;
 
 use crate::{types::CallBackFunction, Methods};
 
@@ -50,28 +50,6 @@ pub fn get_route(route: &str, method: Methods) -> Option<&'static CallBackFuncti
 
   match found {
     Ok(res) => Some(res.value),
-    Err(_) => None,
-  }
-}
-
-#[inline(always)]
-fn params_to_map(params: &Params) -> HashMap<String, String> {
-  let mut map = HashMap::with_capacity(params.len());
-
-  for (key, value) in params.iter() {
-    map.insert(key.to_string(), value.to_string());
-  }
-
-  map
-}
-
-#[inline]
-pub fn get_params(route: &str, method: Methods) -> Option<HashMap<String, String>> {
-  let checking = get_routers().get_for_method(method);
-  let found = checking.at(route);
-
-  match found {
-    Ok(res) => Some(params_to_map(&res.params)),
     Err(_) => None,
   }
 }

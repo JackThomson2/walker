@@ -9,6 +9,7 @@ pub enum JsResponse {
   Text(Bytes),
   Json(Bytes),
   Raw(Bytes),
+  Template(Bytes),
 }
 
 impl JsResponse {
@@ -18,11 +19,12 @@ impl JsResponse {
       Self::Text(_) => "text/plain; charset=UTF-8",
       Self::Json(_) => "application/json; charset=UTF-8",
       Self::Raw(_) => "application/octet-stream",
+      Self::Template(_) => "text/html; charset=UTF-8"
     };
 
     let mut rsp = match self {
       Self::Text(message) | Self::Json(message) => Response::with_body(StatusCode::OK, message),
-      Self::Raw(data) => Response::with_body(StatusCode::OK, data)
+      Self::Raw(data) | Self::Template(data) => Response::with_body(StatusCode::OK, data)
     };
 
     let header = HeaderValue::from_static(message);

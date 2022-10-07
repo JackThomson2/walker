@@ -44,7 +44,7 @@ impl Service<Request> for ActixHttpServer {
   #[inline(always)]
   fn call(&self, req: Request) -> Self::Future {
     Box::pin(async move {
-      let method = match Methods::convert_from_str(req.method().as_str()) {
+      let method = match Methods::convert_from_actix(req.method().clone()) {
         Some(res) => res,
         None => {
           return get_failed_message();

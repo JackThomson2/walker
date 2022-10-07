@@ -22,25 +22,25 @@ export function newRoute(route: string, method: Methods, callback: (result: Requ
  * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
  * needed to get the information from the request
  */
-export function get(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+export function get(route: string, callback: (result: RequestBlob) => void): void
 /**
  * Adds a handler for the a POST request
  * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
  * needed to get the information from the request
  */
-export function post(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+export function post(route: string, callback: (result: RequestBlob) => void): void
 /**
  * Adds a handler for the a PUT request
  * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
  * needed to get the information from the request
  */
-export function put(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+export function put(route: string, callback: (result: RequestBlob) => void): void
 /**
  * Adds a handler for the a PATCH request
  * once the endpoint has been hit. The callback includes a RequestBlob which has all the methods
  * needed to get the information from the request
  */
-export function patch(route: string, method: Methods, callback: (result: RequestBlob) => void): void
+export function patch(route: string, callback: (result: RequestBlob) => void): void
 /**
  * This is called to start the server the address will need to include the IP and port
  * e.g. localhost:8080
@@ -55,6 +55,8 @@ export class RequestBlob {
   sendObject(response: any): void
   /** This needs to be called at the end of every request even if nothing is returned */
   sendStringifiedObject(response: string): void
+  /** This needs to be called at the end of every request even if nothing is returned */
+  sendTemplateResp(data: any): void
   /**
    * Get the url parameters as an object with each key and value
    * this will only be null if an error has occurred
@@ -70,6 +72,11 @@ export class RequestBlob {
    * this will only be null if an error has occurred
    */
   getHeader(name: string): string | null
+  /**
+   * Get the url parameters as an object with each key and value
+   * this will only be null if an error has occurred
+   */
+  getAllHeaders(): Record<string, string>
   /** Retrieve the raw body bytes in a Uint8Array to be used */
   getBody(): Uint8Array
 }

@@ -42,6 +42,26 @@ Walker.get("/b", (res) => {
     res.sendBytesText(buf);
 });
 
+Walker.get("/allHeaders", (res) => {
+    let headers = res.getAllHeaders();
+
+    res.sendObject(headers);
+});
+
+Walker.get("/template.html", (res) => {
+    const data = {
+        username: "Bob",
+        numbers: [1,2,3,4,5,6,7,8],
+        show_all: true,
+        bio: "<script>alert('test')</script>",
+        my_var: `Page visitors ${++counter}`
+    };
+
+    res.sendTemplateResp(data);
+});
+
+
+
 Walker.get("/counter", (res) => {
     res.sendText(`Counter is : ${++counter}`);
 });
@@ -61,6 +81,12 @@ Walker.get("/headers", (res) => {
     let found = res.getHeader("Accept");
     res.sendText(`We have ${count} headers accept header is ${found}`);
 });
+
+Walker.get("/params", (res) => {
+    let headers = res.getParams();
+    res.sendObject(headers);
+});
+
 
 Walker.get("/json", (res) => {
     res.sendObject({
