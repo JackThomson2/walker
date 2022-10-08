@@ -58,10 +58,15 @@ export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendTemplateResp(data: any): void
   /**
+   * Get the query parameters as an object with each key and value
+   * this will only be null if an error has occurred
+   */
+  getQueryParams(): Record<string, string> | null
+  /**
    * Get the url parameters as an object with each key and value
    * this will only be null if an error has occurred
    */
-  getParams(): Record<string, string> | null
+  getUrlParams(): Record<string, string> | null
   /**
    * Get the url parameters as an object with each key and value
    * this will only be null if an error has occurred

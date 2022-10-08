@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json", "async"] }
 napi-derive = "2.7.0"
 matchit = "0.6"
-usync = "0.2"
 snmalloc-rs = { version = "*", features = ["build_cc"] }
 bytes = "1.2.1"
 serde_json = "1.0.85"

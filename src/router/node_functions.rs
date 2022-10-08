@@ -47,9 +47,7 @@ impl Methods {
 pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result<()> {
   let tsfn = ThreadsafeFunction::create(callback.0.env, callback.0.value, 1024)?;
 
-  add_new_route(&route, method, tsfn)?;
-  
-  Ok(())
+  add_new_route(&route, method, tsfn)
 }
 
 #[cold]

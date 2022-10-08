@@ -7,6 +7,8 @@ use self::response::JsResponse;
 
 pub mod node_functions;
 pub mod response;
+
+mod helpers;
 mod writer;
 
 #[napi(custom_finalize)]

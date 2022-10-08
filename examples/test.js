@@ -1,4 +1,4 @@
-const Walker = require('.');
+const Walker = require('..');
 
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -50,17 +50,15 @@ Walker.get("/allHeaders", (res) => {
 
 Walker.get("/template.html", (res) => {
     const data = {
-        username: "Bob",
+        username: "Oli",
         numbers: [1,2,3,4,5,6,7,8],
         show_all: true,
         bio: "<script>alert('test')</script>",
-        my_var: `Page visitors ${++counter}`
+        my_var: `We have 10 Page visitors ${++counter}`
     };
 
     res.sendTemplateResp(data);
 });
-
-
 
 Walker.get("/counter", (res) => {
     res.sendText(`Counter is : ${++counter}`);
@@ -107,6 +105,7 @@ Walker.get("/sjson", (res) => {
 
 Walker.get("/hello/:name", (res) => {
     const params = res.getParams();
+    console.log(params);
     res.sendText(`Hello ${params.name}`);
 });
 
@@ -176,7 +175,7 @@ Walker.get('/db_count', async (res) => {
 
 Walker.post("/post", (res) => {
     const body = res.getBody();
-    res.sendText(body.toString('utf8'));
+    res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
 Walker.start("0.0.0.0:8081")
