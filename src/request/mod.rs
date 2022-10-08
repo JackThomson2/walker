@@ -5,11 +5,10 @@ use napi::{bindgen_prelude::ObjectFinalize, Env, Result};
 
 use self::response::JsResponse;
 
+pub mod helpers;
 pub mod node_functions;
 pub mod response;
-
-mod helpers;
-mod writer;
+pub mod writer;
 
 #[napi(custom_finalize)]
 pub struct RequestBlob {

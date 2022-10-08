@@ -25,6 +25,7 @@ actix-server = "2.1.1"
 async-hatch = { git = "https://github.com/irrustible/async-oneshot.git", branch = "async-hatch" }
 extreme = "666.666.666666"
 tera = "1.17.1"
+parking_lot = "0.12.1"
 
 [build-dependencies]
 napi-build = "2.0.1"

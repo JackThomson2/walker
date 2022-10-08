@@ -12,6 +12,8 @@ let counter = 0;
 
 const pool = {}; // Walker.DbPool.new("postgresql://localhost:5432?user=postgres&password=test", 16);
 
+Walker.loadNewTemplate('root', 'templates');
+
 function do_resp(resp) {
     resp.sendText(response);
 }
@@ -48,20 +50,34 @@ Walker.get("/allHeaders", (res) => {
     res.sendObject(headers);
 });
 
-Walker.get("/template.html", (res) => {
+Walker.get("/reload_template", (res) => {
+    Walker.reloadGroup('root');
+
     const data = {
-        username: "Oli",
+        username: "Oli Legg is the best",
         numbers: [1,2,3,4,5,6,7,8],
         show_all: true,
         bio: "<script>alert('test')</script>",
         my_var: `We have 10 Page visitors ${++counter}`
     };
 
-    res.sendTemplateResp(data);
+    res.sendTemplateResp('root', 'users/profile.html', JSON.stringify(data));
+});
+
+Walker.get("/template.html", (res) => {
+    const data = {
+        username: "Oli Legg is the best",
+        numbers: [1,2,3,4,5,6,7,8],
+        show_all: true,
+        bio: "<script>alert('test')</script>",
+        my_var: `We have 10 Page visitors ${++counter}`
+    };
+
+    res.sendTemplateResp('root', 'users/profile.html', JSON.stringify(data));
 });
 
 Walker.get("/counter", (res) => {
-    res.sendText(`Counter is : ${++counter}`);
+    res.sendText(`Counter is : ${++counter} 😊`);
 });
 
 Walker.post("/body", async (res) => {
@@ -81,7 +97,7 @@ Walker.get("/headers", (res) => {
 });
 
 Walker.get("/params", (res) => {
-    let headers = res.getParams();
+    let headers = res.getQueryParams();
     res.sendObject(headers);
 });
 
@@ -104,8 +120,7 @@ Walker.get("/sjson", (res) => {
 
 
 Walker.get("/hello/:name", (res) => {
-    const params = res.getParams();
-    console.log(params);
+    const params = res.getUrlParams();
     res.sendText(`Hello ${params.name}`);
 });
 

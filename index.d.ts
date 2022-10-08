@@ -46,6 +46,8 @@ export function patch(route: string, callback: (result: RequestBlob) => void): v
  * e.g. localhost:8080
  */
 export function start(address: string): void
+export function loadNewTemplate(groupName: string, directory: string): void
+export function reloadGroup(groupName: string): void
 export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendText(response: string): void
@@ -56,7 +58,7 @@ export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendStringifiedObject(response: string): void
   /** This needs to be called at the end of every request even if nothing is returned */
-  sendTemplateResp(data: any): void
+  sendTemplateResp(groupName: string, fileName: string, contextJson: string): void
   /**
    * Get the query parameters as an object with each key and value
    * this will only be null if an error has occurred

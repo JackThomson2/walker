@@ -4,11 +4,8 @@ use actix_http::HttpMessage;
 use bytes::{Bytes, BytesMut};
 use napi::{bindgen_prelude::Uint8Array, Result};
 use serde_json::Value;
-use tera::{Context, Tera};
 
 use crate::{request::RequestBlob, Methods};
-
-use lazy_static::lazy_static;
 
 use super::{
     helpers::{
@@ -17,19 +14,6 @@ use super::{
     response::JsResponse,
     writer::Writer,
 };
-
-lazy_static! {
-    pub static ref TEMPLATES: Tera = {
-        let tera = match Tera::new("templates/**/*.html") {
-            Ok(t) => t,
-            Err(e) => {
-                println!("Parsing error(s): {}", e);
-                ::std::process::exit(1);
-            }
-        };
-        tera
-    };
-}
 
 #[napi]
 impl RequestBlob {
@@ -88,17 +72,8 @@ impl RequestBlob {
     #[inline(always)]
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
-    pub fn send_template_resp(&mut self, data: Value) -> Result<()> {
-        let mut buffer = BytesMut::with_capacity(2048);
-        TEMPLATES
-            .render_to(
-                "users/profile.html",
-                &Context::from_serialize(&data).map_err(|_| make_generic_error())?,
-                &mut Writer(&mut buffer),
-            )
-            .map_err(|_| make_generic_error())?;
-
-        let message = JsResponse::Template(buffer.freeze());
+    pub fn send_template_resp(&mut self, group_name: String, file_name: String, context_json: String) -> Result<()> {
+        let message = JsResponse::Template(group_name, file_name, context_json);
         self.send_result(message)
     }
 
