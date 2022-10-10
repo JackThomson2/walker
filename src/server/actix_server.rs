@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use actix_http::{body::BoxBody, HttpService, Request, Response};
 use actix_server::Server;
 use actix_service::{Service, ServiceFactory};
@@ -27,7 +29,7 @@ struct ActixHttpServer {
 
 #[cold]
 #[inline(never)]
-fn get_failed_message() -> Result<Response<Bytes>, Error> {
+fn get_failed_message() -> Result<Response<Bytes>, Infallible> {
   Ok(Response::with_body(
     http::StatusCode::NOT_FOUND,
     Bytes::new(),
@@ -36,7 +38,7 @@ fn get_failed_message() -> Result<Response<Bytes>, Error> {
 
 impl Service<Request> for ActixHttpServer {
   type Response = Response<Bytes>;
-  type Error = Error;
+  type Error = Infallible;
   type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
   actix_service::always_ready!();
@@ -83,7 +85,7 @@ struct AppFactory;
 impl ServiceFactory<Request> for AppFactory {
   type Config = ();
   type Response = Response<Bytes>;
-  type Error = Error;
+  type Error = Infallible;
   type Service = ActixHttpServer;
   type InitError = ();
   type Future = LocalBoxFuture<'static, Result<Self::Service, Self::InitError>>;

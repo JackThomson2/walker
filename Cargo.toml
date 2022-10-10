@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json", "async"] }
 napi-derive = "2.7.0"
 matchit = "0.6"
-usync = "0.2"
 snmalloc-rs = { version = "*", features = ["build_cc"] }
 bytes = "1.2.1"
 serde_json = "1.0.85"
@@ -26,6 +25,10 @@ actix-server = "2.1.1"
 async-hatch = { git = "https://github.com/irrustible/async-oneshot.git", branch = "async-hatch" }
 extreme = "666.666.666666"
 tera = "1.17.1"
+parking_lot = "0.12.1"
+simdutf8 = "0.1.4"
+halfbrown = "0.1.15"
+tokio-postgres = { version = "0.7.7", features = ["with-serde_json-1" ] }
 
 [build-dependencies]
 napi-build = "2.0.1"

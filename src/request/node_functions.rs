@@ -1,197 +1,157 @@
-use std::collections::HashMap;
-
-use bytes::{Bytes, BytesMut};
-use futures::StreamExt;
-use napi::{bindgen_prelude::Uint8Array, Error, Result, Status};
+use actix_http::HttpMessage;
+use bytes::{BytesMut, Bytes};
+use napi::{bindgen_prelude::Uint8Array, Result};
 use serde_json::Value;
-use tera::{Context, Tera};
 
-use crate::request::RequestBlob;
+use crate::{request::RequestBlob, Methods, napi::{bytes_recv::JsBytes, fast_str::FastStr, buff_str::BuffStr, halfbrown::HalfBrown}};
 
-use lazy_static::lazy_static;
-
-use super::{response::JsResponse, writer::Writer};
-
-
-lazy_static! {
-  pub static ref TEMPLATES: Tera = {
-      let tera = match Tera::new("templates/**/*.html") {
-          Ok(t) => t,
-          Err(e) => {
-              println!("Parsing error(s): {}", e);
-              ::std::process::exit(1);
-          }
-      };
-      tera
-  };
-}
-
-
-#[cold]
-#[inline(never)]
-fn make_generic_error() -> Error {
-  Error::new(
-    Status::GenericFailure,
-    "Unable to send response".to_string(),
-  )
-}
+use super::{
+    helpers::{
+        convert_header_map, load_body_from_payload, make_generic_error, split_and_get_query_params, make_js_error,
+    },
+    response::JsResponse,
+    writer::Writer,
+};
 
 #[napi]
 impl RequestBlob {
-  #[inline(always)]
-  fn send_result(&mut self, response: JsResponse) -> Result<()> {
-    if self.sent {
-      return Err(make_generic_error());
+    #[inline(always)]
+    fn send_result(&mut self, response: JsResponse) -> Result<()> {
+        if self.sent {
+            return Err(make_js_error("Already sent response."));
+        }
+
+        self.oneshot
+            .set_close_on_send(true)
+            .send(response)
+            .now()
+            .map_err(|_| make_generic_error())?;
+        self.sent = true;
+
+        Ok(())
     }
 
-    self
-      .oneshot
-      .set_close_on_send(true)
-      .send(response)
-      .now()
-      .map_err(|_| make_generic_error())?;
-    self.sent = true;
-
-    Ok(())
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_text(&mut self, response: String) -> Result<()> {
-    let message = JsResponse::Text(Bytes::copy_from_slice(response.as_bytes()));
-    self.send_result(message)
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_bytes_text(&mut self, response: Uint8Array) -> Result<()> {
-    let message = JsResponse::Text(Bytes::copy_from_slice(&response));
-    self.send_result(message)
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_object(&mut self, response: Value) -> Result<()> {
-    let mut bytes = BytesMut::with_capacity(1024);
-    serde_json::to_writer(&mut Writer(&mut bytes), &response).map_err(|_| make_generic_error())?;
-
-    let message = JsResponse::Json(bytes.freeze());
-    self.send_result(message)
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_stringified_object(&mut self, response: String) -> Result<()> {
-    let message = JsResponse::Json(Bytes::copy_from_slice(response.as_bytes()));
-    self.send_result(message)
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// This needs to be called at the end of every request even if nothing is returned
-  pub fn send_template_resp(&mut self, data: Value) -> Result<()> {
-    let mut buffer = BytesMut::with_capacity(2048);
-    TEMPLATES.render_to(
-      "users/profile.html",
-      &Context::from_serialize(&data).map_err(|_| make_generic_error())?,
-      &mut Writer(&mut buffer),
-    ).map_err(|_| make_generic_error())?;
-
-    let message = JsResponse::Template(buffer.freeze());
-    self.send_result(message)
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// Get the url parameters as an object with each key and value
-  /// this will only be null if an error has occurred
-  pub fn get_params(&self) -> Option<HashMap<String, String>> {
-    let mut params = HashMap::with_capacity(16);
-    let query_string = self.data.uri().query()?.to_owned();
-
-    for pair in query_string.split('&') {
-      let mut split_two = pair.split('=');
-
-      let key = match split_two.next() {
-        Some(res) => res,
-        None => continue,
-      };
-
-      let val = match split_two.next() {
-        Some(res) => res,
-        None => continue,
-      };
-
-      params.insert(key.to_string(), val.to_string());
-    }
-    Some(params)
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// Get the url parameters as an object with each key and value
-  /// this will only be null if an error has occurred
-  pub fn header_length(&mut self) -> i64 {
-    let header_val = self.data.headers_mut().len_keys();
-
-    header_val as i64
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// Get the url parameters as an object with each key and value
-  /// this will only be null if an error has occurred
-  pub fn get_header(&mut self, name: String) -> Option<String> {
-    let header_val = self.data.headers_mut().get(name)?;
-
-    Some(header_val.to_str().ok()?.to_string())
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// Get the url parameters as an object with each key and value
-  /// this will only be null if an error has occurred
-  pub fn get_all_headers(&mut self) -> HashMap<String, String> {
-    let header_val = self.data.headers_mut();
-    let mut return_map = HashMap::with_capacity(header_val.len());
-
-    for (key, value) in header_val.iter() {
-      let string_val = match value.to_str() {
-        Ok(res) => res,
-        Err(_) => continue,
-      };
-
-      return_map.insert(key.to_string(), string_val.to_string());
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_text(&mut self, response: BuffStr) -> Result<()> {
+        let message = JsResponse::Text(response.0);
+        self.send_result(message)
     }
 
-    return_map
-  }
-
-  #[inline(always)]
-  #[napi]
-  /// Retrieve the raw body bytes in a Uint8Array to be used
-  pub fn get_body(&mut self) -> Uint8Array {
-    if let Some(body) = &self.body {
-      return body.clone().into();
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_fast_text(&mut self, response: FastStr) -> Result<()> {
+        let message = JsResponse::Text(Bytes::from_iter(response.0.into_bytes()));
+        self.send_result(message)
     }
 
-    extreme::run(async move {
-      let mut payload = self.data.take_payload();
-      let mut bytes = BytesMut::with_capacity(1024);
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_napi_text(&mut self, response: String) -> Result<()> {
+        let message = JsResponse::Text(Bytes::from_iter(response.into_bytes()));
+        self.send_result(message)
+    }
 
-      while let Some(item) = payload.next().await {
-        let item = item.unwrap();
-        bytes.extend_from_slice(&item);
-      }
+    #[inline(always)]
+    #[napi(ts_args_type = "response: Buffer")]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_bytes_text(&mut self, response: JsBytes) -> Result<()> {
+        let message = JsResponse::Text(response.0);
+        self.send_result(message)
+    }
 
-      let bytes = bytes.freeze();
-      self.body = Some(bytes.clone());
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_object(&mut self, response: Value) -> Result<()> {
+        let mut bytes = BytesMut::with_capacity(1024);
+        serde_json::to_writer(&mut Writer(&mut bytes), &response)
+            .map_err(|_| make_js_error("Error serialising data."))?;
 
-      bytes.into()
-    })
-  }
+        let message = JsResponse::Json(bytes.freeze());
+        self.send_result(message)
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_stringified_object(&mut self, response: BuffStr) -> Result<()> {
+        let message = JsResponse::Json(response.0);
+        self.send_result(message)
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_template_resp(&mut self, group_name: FastStr, file_name: FastStr, context_json: FastStr) -> Result<()> {
+        let message = JsResponse::Template(group_name.0, file_name.0, context_json.0);
+        self.send_result(message)
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// Get the query parameters as an object with each key and value
+    /// this will only be null if an error has occurred
+    pub fn get_query_params(&self) -> Option<HalfBrown<String, String>> {
+        let query_string = self.data.uri().query()?.to_owned();
+
+        Some(split_and_get_query_params(query_string))
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// Get the url parameters as an object with each key and value
+    /// this will only be null if an error has occurred
+    pub fn get_url_params(&self) -> Option<HalfBrown<String, String>> {
+      let method_str = self.data.method();
+      let method = Methods::convert_from_actix(method_str.clone())?;
+  
+      crate::router::read_only::get_params(self.data.path(), method)
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// Get the url parameters as an object with each key and value
+    /// this will only be null if an error has occurred
+    pub fn header_length(&self) -> i64 {
+        let header_val = self.data.headers().len_keys();
+
+        header_val as i64
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// Get the url parameters as an object with each key and value
+    /// this will only be null if an error has occurred
+    pub fn get_header(&self, name: FastStr) -> Option<String> {
+        let header_val = self.data.headers().get(name.0)?;
+
+        Some(header_val.to_str().ok()?.to_string())
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// Get the url parameters as an object with each key and value
+    /// this will only be null if an error has occurred
+    pub fn get_all_headers(&self) -> HalfBrown<String, String> {
+        let header_val = self.data.headers();
+        convert_header_map(header_val)
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// Retrieve the raw body bytes in a Uint8Array to be used
+    pub fn get_body(&mut self) -> Uint8Array {
+        if let Some(body) = &self.body {
+            return body.clone().into();
+        }
+
+        let bytes = load_body_from_payload(self.data.take_payload());
+        self.body = Some(bytes.clone());
+
+        bytes.into()
+    }
 }
