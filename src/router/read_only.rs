@@ -1,8 +1,9 @@
-use std::{cell::UnsafeCell, mem::MaybeUninit, collections::HashMap};
+use std::{cell::UnsafeCell, mem::MaybeUninit};
 
+use halfbrown::HashMap;
 use matchit::{Router, Params};
 
-use crate::{types::CallBackFunction, Methods};
+use crate::{types::CallBackFunction, Methods, napi::halfbrown::HalfBrown};
 
 struct RouteCell(UnsafeCell<MaybeUninit<ReadRoutes>>);
 
@@ -66,12 +67,12 @@ fn params_to_map(params: &Params) -> HashMap<String, String> {
 }
 
 #[inline]
-pub fn get_params(route: &str, method: Methods) -> Option<HashMap<String, String>> {
+pub fn get_params(route: &str, method: Methods) -> Option<HalfBrown<String, String>> {
   let checking = get_routers().get_for_method(method);
   let found = checking.at(route);
 
   match found {
-    Ok(res) => Some(params_to_map(&res.params)),
+    Ok(res) => Some(HalfBrown(params_to_map(&res.params))),
     Err(_) => None,
   }
 }

@@ -1,9 +1,11 @@
-use std::collections::HashMap;
 
 use actix_http::{header::HeaderMap, Payload};
 use bytes::BytesMut;
+use halfbrown::HashMap;
 use napi::{Error, Status};
 use futures::StreamExt;
+
+use crate::napi::halfbrown::HalfBrown;
 
 #[cold]
 #[inline(never)]
@@ -14,8 +16,27 @@ pub fn make_generic_error() -> Error {
     )
 }
 
+#[cold]
+#[inline(never)]
+pub fn make_js_error(reason: &'static str) -> Error {
+    Error::new(
+        Status::GenericFailure,
+        reason.to_string(),
+    )
+}
+
+#[cold]
+#[inline(never)]
+pub fn make_js_error_string(reason: String) -> Error {
+    Error::new(
+        Status::GenericFailure,
+        reason,
+    )
+}
+
+
 #[inline(always)]
-pub fn split_and_get_query_params(query_string: String) -> HashMap<String, String> {
+pub fn split_and_get_query_params(query_string: String) -> HalfBrown<String, String> {
     let mut params = HashMap::with_capacity(16);
     for pair in query_string.split('&') {
         let mut split_two = pair.split('=');
@@ -33,11 +54,11 @@ pub fn split_and_get_query_params(query_string: String) -> HashMap<String, Strin
         params.insert(key.to_string(), val.to_string());
     }
 
-    params
+    HalfBrown(params)
 }
 
 #[inline(always)]
-pub fn convert_header_map(header_val: &HeaderMap) -> HashMap<String, String> {
+pub fn convert_header_map(header_val: &HeaderMap) -> HalfBrown<String, String> {
     let mut return_map = HashMap::with_capacity(header_val.len());
 
     for (key, value) in header_val.iter() {
@@ -49,7 +70,7 @@ pub fn convert_header_map(header_val: &HeaderMap) -> HashMap<String, String> {
         return_map.insert(key.to_string(), string_val.to_string());
     }
 
-    return_map
+    HalfBrown(return_map)
 }
 
 #[inline(always)]

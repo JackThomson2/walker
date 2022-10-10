@@ -22,9 +22,21 @@ Walker.get("/", (res) => {
     res.sendText(response);
 });
 
+Walker.get("/fast", (res) => {
+    res.sendFastText(response);
+});
+
+Walker.get("/napi", (res) => {
+    res.sendNapiText(response);
+});
+
 Walker.get("/normalFunc", do_resp);
 
 Walker.get("/next_tick", (res) => {
+    process.nextTick(() => res.sendBytesText(buf));
+});
+
+Walker.get("/next_tick_b", (res) => {
     process.nextTick(() => res.sendText(response));
 });
 

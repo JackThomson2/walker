@@ -14,6 +14,7 @@ mod types;
 mod server;
 mod templates;
 
+pub use db::node_functions::*;
 pub use request::node_functions::*;
 pub use router::node_functions::*;
 pub use server::node_functions::*;

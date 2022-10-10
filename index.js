@@ -236,8 +236,11 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { Methods, newRoute, get, post, put, patch, RequestBlob, start, loadNewTemplate, reloadGroup } = nativeBinding
+const { DbConnection, connectDb, readFileAsync, Methods, newRoute, get, post, put, patch, RequestBlob, start, loadNewTemplate, reloadGroup } = nativeBinding
 
+module.exports.DbConnection = DbConnection
+module.exports.connectDb = connectDb
+module.exports.readFileAsync = readFileAsync
 module.exports.Methods = Methods
 module.exports.newRoute = newRoute
 module.exports.get = get
