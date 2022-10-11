@@ -1,13 +1,20 @@
+use std::mem::MaybeUninit;
+
 use actix_http::HttpMessage;
-use bytes::{BytesMut, Bytes};
+use bytes::{Bytes, BytesMut};
 use napi::{bindgen_prelude::Uint8Array, Result};
 use serde_json::Value;
 
-use crate::{request::RequestBlob, Methods, napi::{bytes_recv::JsBytes, fast_str::FastStr, buff_str::BuffStr, halfbrown::HalfBrown}};
+use crate::{
+    napi::{buff_str::BuffStr, bytes_recv::JsBytes, fast_str::FastStr, halfbrown::HalfBrown},
+    request::RequestBlob,
+    Methods,
+};
 
 use super::{
     helpers::{
-        convert_header_map, load_body_from_payload, make_generic_error, split_and_get_query_params, make_js_error,
+        convert_header_map, load_body_from_payload, make_js_error,
+        split_and_get_query_params,
     },
     response::JsResponse,
     writer::Writer,
@@ -21,12 +28,16 @@ impl RequestBlob {
             return Err(make_js_error("Already sent response."));
         }
 
-        self.oneshot
-            .set_close_on_send(true)
-            .send(response)
-            .now()
-            .map_err(|_| make_generic_error())?;
         self.sent = true;
+
+        let oneshot = unsafe {
+            let result = std::mem::replace(&mut self.oneshot, MaybeUninit::uninit());
+            result.assume_init()
+        };
+
+        oneshot
+            .send(response)
+            .map_err(|_| make_js_error("Error sending response."))?;
 
         Ok(())
     }
@@ -86,7 +97,12 @@ impl RequestBlob {
     #[inline(always)]
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
-    pub fn send_template_resp(&mut self, group_name: FastStr, file_name: FastStr, context_json: FastStr) -> Result<()> {
+    pub fn send_template_resp(
+        &mut self,
+        group_name: FastStr,
+        file_name: FastStr,
+        context_json: FastStr,
+    ) -> Result<()> {
         let message = JsResponse::Template(group_name.0, file_name.0, context_json.0);
         self.send_result(message)
     }
@@ -106,10 +122,10 @@ impl RequestBlob {
     /// Get the url parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn get_url_params(&self) -> Option<HalfBrown<String, String>> {
-      let method_str = self.data.method();
-      let method = Methods::convert_from_actix(method_str.clone())?;
-  
-      crate::router::read_only::get_params(self.data.path(), method)
+        let method_str = self.data.method();
+        let method = Methods::convert_from_actix(method_str.clone())?;
+
+        crate::router::read_only::get_params(self.data.path(), method)
     }
 
     #[inline(always)]

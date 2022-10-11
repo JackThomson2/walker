@@ -39,7 +39,7 @@ impl ToNapiValue for PostgresData {
 }
 
 #[inline]
-unsafe fn pg_cell_to_js_value(
+pub unsafe fn pg_cell_to_js_value(
     env: sys::napi_env,
     row: &Row,
     column: &Column,
@@ -66,14 +66,17 @@ unsafe fn pg_cell_to_js_value(
             f64::to_napi_value(env, a)
         }),
 
-        Type::TEXT => get_basic(env, row, column, column_i, |a: String| {
+        Type::TEXT | Type::VARCHAR => get_basic(env, row, column, column_i, |a: String| {
             String::to_napi_value(env, a)
         }),
         Type::JSON => get_basic(env, row, column, column_i, |a: Value| {
             Value::to_napi_value(env, a)
         }),
 
-        _ => get_undefined(env),
+        ref e => {
+            println!("Unknown type {}", e.name());
+            get_undefined(env)
+        },
     }
 }
 

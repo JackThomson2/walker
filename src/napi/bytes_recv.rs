@@ -38,7 +38,7 @@ impl FromNapiValue for JsBytes {
             ));
         }
 
-        let buffer = Bytes::copy_from_slice(std::slice::from_raw_parts(data as *mut u8, length));
+        let buffer = Bytes::copy_from_slice(&*ptr::slice_from_raw_parts(data as *mut u8, length));
         Ok(Self(buffer))
     }
 }

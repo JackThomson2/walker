@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use actix_http::{body::BoxBody, HttpService, Request, Response};
 use actix_server::Server;
 use actix_service::{Service, ServiceFactory};
-use async_hatch::oneshot;
+use tokio::sync::oneshot;
 use bytes::Bytes;
 use futures::future::LocalBoxFuture;
 use http::HeaderValue;
@@ -60,7 +60,7 @@ impl Service<Request> for ActixHttpServer {
         }
       };
 
-      let (send, rec) = oneshot();
+      let (send, rec) = oneshot::channel();
       let msg_body = RequestBlob::new_with_route(req, send);
 
       result.call(
@@ -71,7 +71,7 @@ impl Service<Request> for ActixHttpServer {
       // We'll hand back to the tokio scheduler for now as we don't expect an instant response here
       tokio::task::yield_now().await;
 
-      match rec.close_on_receive(true).receive().await {
+      match rec.await {
         Ok(res) => Ok(res.apply_to_response()),
         Err(_) => get_failed_message(),
       }

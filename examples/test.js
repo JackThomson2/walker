@@ -10,7 +10,11 @@ const buf = new Uint8Array(Buffer.from(response, 'utf8'));
 
 let counter = 0;
 
-const pool = {}; // Walker.DbPool.new("postgresql://localhost:5432?user=postgres&password=test", 16);
+let pool = {}; 
+
+setTimeout(async () => {
+    pool = await Walker.connectDb("postgresql://localhost:5432?user=postgres&password=test", 16)
+});
 
 Walker.loadNewTemplate('root', 'templates');
 
@@ -148,15 +152,15 @@ Walker.get("/timeout", (res) => {
 });
 
 Walker.get('/db_call', async (res) => {
-    const query = await pool.query("SELECT (name, age) FROM main LIMIT 2");
-    res.sendObject(query);
+    const query = await pool.query("SELECT * FROM main LIMIT 2");
+    process.nextTick(() => res.sendObject(query));
 })
 
 Walker.get('/db_multi_call', async (res) => {
     const queries = [];
 
     for (let i = 0; i < 10; i++) {
-        const query = pool.query("SELECT (name, age) FROM main LIMIT 2");
+        const query = pool.query("SELECT * FROM main LIMIT 2");
         queries.push(query);
     }
 
@@ -169,7 +173,7 @@ Walker.get('/db_multi_call_sync', async (res) => {
     const queries = [];
 
     for (let i = 0; i < 10; i++) {
-        const query = await pool.query("SELECT (name, age) FROM main LIMIT 2");
+        const query = await pool.query("SELECT * FROM main LIMIT 2");
         queries.push(query);
     }
 
@@ -180,7 +184,7 @@ Walker.get('/db_multi_call_native', async (res) => {
     const queries = [];
 
     for (let i = 0; i < 10; i++) {
-        const query = "SELECT (name, age) FROM main LIMIT 10;";
+        const query = "SELECT * FROM main LIMIT 10;";
         queries.push(query);
     }
 

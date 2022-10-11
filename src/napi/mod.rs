@@ -4,3 +4,4 @@ pub mod fast_str;
 pub mod buff_str;
 pub mod halfbrown;
 pub mod postgres;
+pub mod postgres_rows;
