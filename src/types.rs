@@ -1,3 +1,3 @@
-use crate::{request::RequestBlob, napi::tsfn::ThreadsafeFunction};
+use crate::napi::tsfn::ThreadsafeFunction;
 
-pub type CallBackFunction = ThreadsafeFunction<RequestBlob>;
+pub type CallBackFunction = ThreadsafeFunction;

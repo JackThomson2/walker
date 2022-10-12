@@ -7,7 +7,6 @@ version = "0.0.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
 napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json", "compat-mode"] }
 napi-derive = "2.7.0"
 matchit = "0.6"
@@ -22,7 +21,6 @@ futures = "0.3.24"
 http = "0.2.8"
 actix-rt = "2.7.0"
 actix-server = "2.1.1"
-async-hatch = { git = "https://github.com/irrustible/async-oneshot.git", branch = "async-hatch" }
 extreme = "666.666.666666"
 tera = "1.17.1"
 parking_lot = "0.12.1"

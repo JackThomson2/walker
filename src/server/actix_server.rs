@@ -98,7 +98,7 @@ fn run_server(address: String, workers: usize) -> std::io::Result<()> {
             .bind("walker_server_h1", &address, || {
                 HttpService::build().finish(AppFactory).tcp()
             })?
-            .workers(4)
+            .workers(workers)
             .run(),
     )
 }

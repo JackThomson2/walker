@@ -5,14 +5,15 @@
 
 use std::convert::Into;
 use std::ffi::CString;
-use std::marker::PhantomData;
 use std::os::raw::c_void;
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use napi::{check_status, sys, Result, Status};
-use napi::bindgen_prelude::ToNapiValue;
+
+use crate::RequestBlob;
+use crate::request::unsafe_impl::convert_to_napi;
 
 
 #[repr(u8)]
@@ -79,26 +80,24 @@ impl From<ThreadsafeFunctionCallMode> for sys::napi_threadsafe_function_call_mod
 ///   ctx.env.get_undefined()
 /// }
 /// ```
-pub struct ThreadsafeFunction<T: 'static> {
+pub struct ThreadsafeFunction {
   raw_tsfn: sys::napi_threadsafe_function,
   ref_count: Arc<AtomicUsize>,
-  _phantom: PhantomData<T>,
 }
 
-impl<T: 'static> Clone for ThreadsafeFunction<T> {
+impl Clone for ThreadsafeFunction {
   fn clone(&self) -> Self {
     Self {
       raw_tsfn: self.raw_tsfn,
       ref_count: Arc::clone(&self.ref_count),
-      _phantom: PhantomData,
     }
   }
 }
 
-unsafe impl<T> Send for ThreadsafeFunction<T> {}
-unsafe impl<T> Sync for ThreadsafeFunction<T> {}
+unsafe impl Send for ThreadsafeFunction {}
+unsafe impl Sync for ThreadsafeFunction {}
 
-impl<T: 'static + ToNapiValue> ThreadsafeFunction<T> {
+impl ThreadsafeFunction {
   /// See [napi_create_threadsafe_function](https://nodejs.org/api/n-api.html#n_api_napi_create_threadsafe_function)
   /// for more information.
   pub(crate) fn create(
@@ -124,9 +123,9 @@ impl<T: 'static + ToNapiValue> ThreadsafeFunction<T> {
         max_queue_size,
         initial_thread_count,
         ptr,
-        Some(thread_finalize_cb::<T>),
+        Some(thread_finalize_cb),
         ptr,
-        Some(call_js_cb::<T>),
+        Some(call_js_cb),
         &mut raw_tsfn,
       )
     })?;
@@ -134,17 +133,16 @@ impl<T: 'static + ToNapiValue> ThreadsafeFunction<T> {
     Ok(ThreadsafeFunction {
       raw_tsfn,
       ref_count: Arc::new(AtomicUsize::new(initial_thread_count)),
-      _phantom: PhantomData,
     })
   }
 }
 
 
-impl<T: 'static> ThreadsafeFunction<T> {
+impl ThreadsafeFunction {
   /// See [napi_call_threadsafe_function](https://nodejs.org/api/n-api.html#n_api_napi_call_threadsafe_function)
   /// for more information.
   #[inline(always)]
-  pub fn call(&self, value: T, mode: ThreadsafeFunctionCallMode) -> Status {
+  pub fn call(&self, value: RequestBlob, mode: ThreadsafeFunctionCallMode) -> Status {
     unsafe {
       sys::napi_call_threadsafe_function(self.raw_tsfn, Box::into_raw(Box::new(value)) as *mut _, mode.into())
     }
@@ -152,7 +150,7 @@ impl<T: 'static> ThreadsafeFunction<T> {
   }
 }
 
-impl<T: 'static> Drop for ThreadsafeFunction<T> {
+impl Drop for ThreadsafeFunction {
   fn drop(&mut self) {
     if self.ref_count.load(Ordering::Acquire) > 0usize {
       let release_status = unsafe {
@@ -166,7 +164,7 @@ impl<T: 'static> Drop for ThreadsafeFunction<T> {
   }
 }
 
-unsafe extern "C" fn thread_finalize_cb<T: 'static>(
+unsafe extern "C" fn thread_finalize_cb(
   _raw_env: sys::napi_env,
   _finalize_data: *mut c_void,
   _finalize_hint: *mut c_void,
@@ -176,7 +174,7 @@ unsafe extern "C" fn thread_finalize_cb<T: 'static>(
 }
 
 #[inline(always)]
-unsafe extern "C" fn call_js_cb<T: 'static + ToNapiValue>(
+unsafe extern "C" fn call_js_cb(
   raw_env: sys::napi_env,
   js_callback: sys::napi_value,
   _context: *mut c_void,
@@ -187,15 +185,14 @@ unsafe extern "C" fn call_js_cb<T: 'static + ToNapiValue>(
     return;
   }
 
-  let val: T = *Box::<T>::from_raw(data.cast());
   let mut recv = ptr::null_mut();
   sys::napi_get_undefined(raw_env, &mut recv);
 
   let mut result = ptr::null_mut();
 
-  let res = match ToNapiValue::to_napi_value(raw_env, val) {
-    Ok(res) => res,
-    Err(_) => return
+  let res = match convert_to_napi(raw_env, data) {
+    Some(res) => res,
+    None => return
   };
 
   let args = [res];

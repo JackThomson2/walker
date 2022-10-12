@@ -15,7 +15,7 @@ use super::{
     helpers::{
         convert_header_map, load_body_from_payload, make_js_error, split_and_get_query_params,
     },
-    response::JsResponse,
+    response::{JsResponse, InnerResp},
 };
 
 #[napi]
@@ -24,6 +24,7 @@ pub struct RequestBlob {
     pub(crate) oneshot: MaybeUninit<Sender<JsResponse>>,
     pub(crate) sent: bool,
     pub(crate) body: Option<Bytes>,
+    pub(crate) headers: MaybeUninit<Option<Vec<(Bytes, Bytes)>>>
 }
 
 #[napi]
@@ -31,17 +32,19 @@ impl RequestBlob {
     #[inline]
     pub fn new_with_route(data: Request, sender: Sender<JsResponse>) -> Self {
         let oneshot = MaybeUninit::new(sender);
+        let headers = MaybeUninit::new(None);
 
         Self {
             data,
             oneshot,
             sent: false,
             body: None,
+            headers,
         }
     }
 
     #[inline(always)]
-    pub fn send_result_checked(&mut self, response: JsResponse, checked: bool) -> Result<()> {
+    pub fn send_result_checked(&mut self, inner: InnerResp, checked: bool) -> Result<()> {
         if checked && self.sent {
             return Err(make_js_error("Already sent response."));
         }
@@ -52,7 +55,13 @@ impl RequestBlob {
             result.assume_init()
         };
 
-        let res = oneshot.send(response);
+        let headers = unsafe {
+            let result = std::mem::replace(&mut self.headers, MaybeUninit::uninit());
+            result.assume_init()
+        };
+
+        let js_resp = JsResponse { inner, headers };
+        let res = oneshot.send(js_resp);
 
         if checked && res.is_err() {
             eprintln!("Error sending response, the reciever may have dropped.");
@@ -62,7 +71,7 @@ impl RequestBlob {
     }
 
     #[inline(always)]
-    pub fn send_result(&mut self, response: JsResponse) -> Result<()> {
+    pub fn send_result(&mut self, response: InnerResp) -> Result<()> {
         self.send_result_checked(response, true)
     }
 
@@ -70,7 +79,7 @@ impl RequestBlob {
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn send_text(&mut self, response: BuffStr) -> Result<()> {
-        let message = JsResponse::Text(response.0);
+        let message = InnerResp::Text(response.0);
         self.send_result(message)
     }
 
@@ -78,7 +87,7 @@ impl RequestBlob {
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn send_fast_text(&mut self, response: FastStr) -> Result<()> {
-        let message = JsResponse::Text(Bytes::from_iter(response.0.into_bytes()));
+        let message = InnerResp::Text(Bytes::from_iter(response.0.into_bytes()));
         self.send_result(message)
     }
 
@@ -86,7 +95,7 @@ impl RequestBlob {
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn send_napi_text(&mut self, response: String) -> Result<()> {
-        let message = JsResponse::Text(Bytes::from_iter(response.into_bytes()));
+        let message = InnerResp::Text(Bytes::from_iter(response.into_bytes()));
         self.send_result(message)
     }
 
@@ -94,7 +103,7 @@ impl RequestBlob {
     #[napi(ts_args_type = "response: Buffer")]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn send_bytes_text(&mut self, response: JsBytes) -> Result<()> {
-        let message = JsResponse::Text(response.0);
+        let message = InnerResp::Text(response.0);
         self.send_result(message)
     }
 
@@ -102,7 +111,7 @@ impl RequestBlob {
     #[napi(ts_args_type = "response: Buffer")]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn unsafe_send_bytes_text(&mut self, response: JsBytes) {
-        let message = JsResponse::Text(response.0);
+        let message = InnerResp::Text(response.0);
         let _ = self.send_result_checked(message, false);
     }
 
@@ -116,7 +125,7 @@ impl RequestBlob {
             .map_err(|_| make_js_error("Error serialising data."))?;
 
         let bytes = writer.into_inner();
-        let message = JsResponse::Json(bytes.freeze());
+        let message = InnerResp::Json(bytes.freeze());
         self.send_result(message)
     }
 
@@ -124,7 +133,7 @@ impl RequestBlob {
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn send_stringified_object(&mut self, response: BuffStr) -> Result<()> {
-        let message = JsResponse::Json(response.0);
+        let message = InnerResp::Json(response.0);
         self.send_result(message)
     }
 
@@ -137,7 +146,7 @@ impl RequestBlob {
         file_name: FastStr,
         context_json: FastStr,
     ) -> Result<()> {
-        let message = JsResponse::Template(group_name.0, file_name.0, context_json.0);
+        let message = InnerResp::Template(group_name.0, file_name.0, context_json.0);
         self.send_result(message)
     }
 
