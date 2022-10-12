@@ -98,6 +98,11 @@ export class RequestBlob {
    * this will only be null if an error has occurred
    */
   getAllHeaders(): HalfBrown
+  /**
+   * Get the url parameters as an object with each key and value
+   * this will only be null if an error has occurred
+   */
+  addHeader(key: BuffStr, value: BuffStr): void
   /** Retrieve the raw body bytes in a Uint8Array to be used */
   getBody(): Uint8Array
 }

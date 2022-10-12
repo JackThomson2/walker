@@ -200,6 +200,23 @@ impl RequestBlob {
 
     #[inline(always)]
     #[napi]
+    /// Add a new header to the response sent to the user
+    pub fn add_header(&mut self, key: BuffStr, value: BuffStr) {
+        if self.sent {
+            return
+        }
+
+        let headers = unsafe { self.headers.assume_init_mut() };
+
+        if let Some(list_of_headers) = headers {
+            list_of_headers.push((key.0, value.0))
+        } else  {
+            *headers = Some(vec![(key.0, value.0)])
+        }
+    }
+
+    #[inline(always)]
+    #[napi]
     /// Retrieve the raw body bytes in a Uint8Array to be used
     pub fn get_body(&mut self) -> Result<Uint8Array> {
         if let Some(body) = &self.body {
