@@ -18,7 +18,7 @@ impl FromNapiValue for BuffStr {
         let mut buffer = BytesMut::with_capacity(FAST_PATH_LEN);
         let mut len = 0;
 
-        let buf_ptr = buffer.as_mut_ptr();
+        let mut buf_ptr = buffer.as_mut_ptr();
         check_status!(
             sys::napi_get_value_string_utf8(env, napi_val, buf_ptr as *mut i8, FAST_PATH_LEN, &mut len),
             "Failed to convert napi `string` into rust type `String`",
@@ -32,7 +32,9 @@ impl FromNapiValue for BuffStr {
             )?;
     
             len += 1;
-            buffer.reserve(len - FAST_PATH_LEN);
+            buffer.reserve(len);
+            buf_ptr = buffer.as_mut_ptr();
+
             check_status!(
                 sys::napi_get_value_string_utf8(env, napi_val, buf_ptr as *mut i8, len, &mut len),
                 "Failed to convert napi `string` into rust type `String`",

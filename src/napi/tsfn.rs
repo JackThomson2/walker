@@ -193,7 +193,12 @@ unsafe extern "C" fn call_js_cb<T: 'static + ToNapiValue>(
 
   let mut result = ptr::null_mut();
 
-  let args = [ToNapiValue::to_napi_value(raw_env, val).unwrap()];
+  let res = match ToNapiValue::to_napi_value(raw_env, val) {
+    Ok(res) => res,
+    Err(_) => return
+  };
+
+  let args = [res];
  
   sys::napi_call_function(
     raw_env,

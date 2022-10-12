@@ -1,9 +1,10 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit};
 
+use actix_http::Method;
 use halfbrown::HashMap;
 use matchit::{Router, Params};
 
-use crate::{types::CallBackFunction, Methods, napi::halfbrown::HalfBrown};
+use crate::{types::CallBackFunction, napi::halfbrown::HalfBrown};
 
 struct RouteCell(UnsafeCell<MaybeUninit<ReadRoutes>>);
 
@@ -22,13 +23,14 @@ pub struct ReadRoutes {
 
 impl ReadRoutes {
   #[inline(always)]
-  fn get_for_method(&self, method: Methods) -> &ReaderLookup {
+  fn get_for_actix_method(&self, method: Method) -> Option<&ReaderLookup> {
     match method {
-      Methods::GET => &self.get,
-      Methods::POST => &self.post,
-      Methods::PUT => &self.put,
-      Methods::PATCH => &self.patch,
-      Methods::DELETE => &self.delete,
+      Method::GET => Some(&self.get),
+      Method::POST => Some(&self.post),
+      Method::PUT => Some(&self.put),
+      Method::PATCH => Some(&self.patch),
+      Method::DELETE => Some(&self.delete),
+      _ => None
     }
   }
 }
@@ -45,8 +47,8 @@ fn get_routers() -> &'static ReadRoutes {
 }
 
 #[inline(always)]
-pub fn get_route(route: &str, method: Methods) -> Option<&'static CallBackFunction> {
-  let checking = get_routers().get_for_method(method);
+pub fn get_route(route: &str, method: Method) -> Option<&'static CallBackFunction> {
+  let checking = get_routers().get_for_actix_method(method)?;
   let found = checking.at(route);
 
   match found {
@@ -67,8 +69,8 @@ fn params_to_map(params: &Params) -> HashMap<String, String> {
 }
 
 #[inline]
-pub fn get_params(route: &str, method: Methods) -> Option<HalfBrown<String, String>> {
-  let checking = get_routers().get_for_method(method);
+pub fn get_params(route: &str, method: Method) -> Option<HalfBrown<String, String>> {
+  let checking = get_routers().get_for_actix_method(method)?;
   let found = checking.at(route);
 
   match found {

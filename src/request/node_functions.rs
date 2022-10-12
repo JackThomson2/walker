@@ -1,45 +1,69 @@
 use std::mem::MaybeUninit;
 
-use actix_http::HttpMessage;
-use bytes::{Bytes, BytesMut};
+use actix_http::{HttpMessage, Request};
+use bytes::{BufMut, Bytes, BytesMut};
 use napi::{bindgen_prelude::Uint8Array, Result};
 use serde_json::Value;
+use tokio::sync::oneshot::Sender;
 
 use crate::{
     napi::{buff_str::BuffStr, bytes_recv::JsBytes, fast_str::FastStr, halfbrown::HalfBrown},
-    request::RequestBlob,
-    Methods,
+    router,
 };
 
 use super::{
     helpers::{
-        convert_header_map, load_body_from_payload, make_js_error,
-        split_and_get_query_params,
+        convert_header_map, load_body_from_payload, make_js_error, split_and_get_query_params,
     },
     response::JsResponse,
-    writer::Writer,
 };
 
 #[napi]
+pub struct RequestBlob {
+    pub(crate) data: Request,
+    pub(crate) oneshot: MaybeUninit<Sender<JsResponse>>,
+    pub(crate) sent: bool,
+    pub(crate) body: Option<Bytes>,
+}
+
+#[napi]
 impl RequestBlob {
+    #[inline]
+    pub fn new_with_route(data: Request, sender: Sender<JsResponse>) -> Self {
+        let oneshot = MaybeUninit::new(sender);
+
+        Self {
+            data,
+            oneshot,
+            sent: false,
+            body: None,
+        }
+    }
+
     #[inline(always)]
-    fn send_result(&mut self, response: JsResponse) -> Result<()> {
-        if self.sent {
+    pub fn send_result_checked(&mut self, response: JsResponse, checked: bool) -> Result<()> {
+        if checked && self.sent {
             return Err(make_js_error("Already sent response."));
         }
 
         self.sent = true;
-
         let oneshot = unsafe {
             let result = std::mem::replace(&mut self.oneshot, MaybeUninit::uninit());
             result.assume_init()
         };
 
-        oneshot
-            .send(response)
-            .map_err(|_| make_js_error("Error sending response."))?;
+        let res = oneshot.send(response);
+
+        if checked && res.is_err() {
+            eprintln!("Error sending response, the reciever may have dropped.");
+        }
 
         Ok(())
+    }
+
+    #[inline(always)]
+    pub fn send_result(&mut self, response: JsResponse) -> Result<()> {
+        self.send_result_checked(response, true)
     }
 
     #[inline(always)]
@@ -75,13 +99,23 @@ impl RequestBlob {
     }
 
     #[inline(always)]
+    #[napi(ts_args_type = "response: Buffer")]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn unsafe_send_bytes_text(&mut self, response: JsBytes) {
+        let message = JsResponse::Text(response.0);
+        let _ = self.send_result_checked(message, false);
+    }
+
+    #[inline(always)]
     #[napi]
     /// This needs to be called at the end of every request even if nothing is returned
     pub fn send_object(&mut self, response: Value) -> Result<()> {
-        let mut bytes = BytesMut::with_capacity(1024);
-        serde_json::to_writer(&mut Writer(&mut bytes), &response)
+        let bytes = BytesMut::with_capacity(128);
+        let mut writer = bytes.writer();
+        serde_json::to_writer(&mut writer, &response)
             .map_err(|_| make_js_error("Error serialising data."))?;
 
+        let bytes = writer.into_inner();
         let message = JsResponse::Json(bytes.freeze());
         self.send_result(message)
     }
@@ -123,9 +157,7 @@ impl RequestBlob {
     /// this will only be null if an error has occurred
     pub fn get_url_params(&self) -> Option<HalfBrown<String, String>> {
         let method_str = self.data.method();
-        let method = Methods::convert_from_actix(method_str.clone())?;
-
-        crate::router::read_only::get_params(self.data.path(), method)
+        router::read_only::get_params(self.data.path(), method_str.clone())
     }
 
     #[inline(always)]
@@ -160,14 +192,14 @@ impl RequestBlob {
     #[inline(always)]
     #[napi]
     /// Retrieve the raw body bytes in a Uint8Array to be used
-    pub fn get_body(&mut self) -> Uint8Array {
+    pub fn get_body(&mut self) -> Result<Uint8Array> {
         if let Some(body) = &self.body {
-            return body.clone().into();
+            return Ok(body.clone().into());
         }
 
-        let bytes = load_body_from_payload(self.data.take_payload());
+        let bytes = load_body_from_payload(self.data.take_payload())?;
         self.body = Some(bytes.clone());
 
-        bytes.into()
+        Ok(bytes.into())
     }
 }

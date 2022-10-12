@@ -1,9 +1,8 @@
-
 use actix_http::{header::HeaderMap, Payload};
 use bytes::BytesMut;
-use halfbrown::HashMap;
-use napi::{Error, Status};
 use futures::StreamExt;
+use halfbrown::HashMap;
+use napi::{Error, Result, Status};
 
 use crate::napi::halfbrown::HalfBrown;
 
@@ -19,21 +18,14 @@ pub fn make_generic_error() -> Error {
 #[cold]
 #[inline(never)]
 pub fn make_js_error(reason: &'static str) -> Error {
-    Error::new(
-        Status::GenericFailure,
-        reason.to_string(),
-    )
+    Error::new(Status::GenericFailure, reason.to_string())
 }
 
 #[cold]
 #[inline(never)]
 pub fn make_js_error_string(reason: String) -> Error {
-    Error::new(
-        Status::GenericFailure,
-        reason,
-    )
+    Error::new(Status::GenericFailure, reason)
 }
-
 
 #[inline(always)]
 pub fn split_and_get_query_params(query_string: String) -> HalfBrown<String, String> {
@@ -74,15 +66,15 @@ pub fn convert_header_map(header_val: &HeaderMap) -> HalfBrown<String, String> {
 }
 
 #[inline(always)]
-pub fn load_body_from_payload(mut payload: Payload) -> bytes::Bytes {
+pub fn load_body_from_payload(mut payload: Payload) -> Result<bytes::Bytes> {
     extreme::run(async move {
         let mut bytes = BytesMut::with_capacity(1024);
 
         while let Some(item) = payload.next().await {
-            let item = item.unwrap();
+            let item = item.map_err(|_| make_js_error("Error reading payload"))?;
             bytes.extend_from_slice(&item);
         }
 
-        bytes.freeze()
+        Ok(bytes.freeze())
     })
 }

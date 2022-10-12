@@ -1,9 +1,8 @@
-use std::sync::RwLock;
-
 use matchit::Router;
 use napi::bindgen_prelude::*;
 
 use lazy_static::lazy_static;
+use parking_lot::RwLock;
 
 use crate::{types::CallBackFunction, Methods};
 
@@ -17,7 +16,7 @@ lazy_static! {
 }
 
 pub fn thread_to_reader(input: &ThreadSafeLookup) -> ReaderLookup {
-  let reader = input.read().unwrap();
+  let reader = input.read();
   reader.clone()
 }
 
@@ -75,8 +74,7 @@ pub fn initialise_reader() {
 pub fn add_new_route(route: &str, method: Methods, function: CallBackFunction) -> Result<()> {
   let lock = GLOBAL_DATA.get_rw_from_method(method);
   let mut writing = lock
-    .write()
-    .map_err(|_| Error::new(Status::GenericFailure, "Error inserting route".to_string()))?;
+    .write();
 
   writing
     .insert(route, function)

@@ -11,9 +11,14 @@ const buf = new Uint8Array(Buffer.from(response, 'utf8'));
 let counter = 0;
 
 let pool = {}; 
+let prepped = {};
 
 setTimeout(async () => {
-    pool = await Walker.connectDb("postgresql://localhost:5432?user=postgres&password=test", 16)
+    let new_pool = await Walker.connectDb("postgresql://localhost:5432?user=postgres&password=test", 4);
+    let new_prepped = await new_pool.prepareStatement("SELECT name FROM main LIMIT 1;", 4);
+
+    pool = new_pool;
+    prepped = new_prepped;
 });
 
 Walker.loadNewTemplate('root', 'templates');
@@ -34,10 +39,18 @@ Walker.get("/napi", (res) => {
     res.sendNapiText(response);
 });
 
+Walker.get("/alt", (res) => {
+    res.sendAltText(response);
+});
+
 Walker.get("/normalFunc", do_resp);
 
 Walker.get("/next_tick", (res) => {
     process.nextTick(() => res.sendBytesText(buf));
+});
+
+Walker.get("/next_tick_u", (res) => {
+    process.nextTick(() => res.unsafeSendBytesText(buf));
 });
 
 Walker.get("/next_tick_b", (res) => {
@@ -58,6 +71,10 @@ Walker.get("/t", (res) => {
 
 Walker.get("/b", (res) => {
     res.sendBytesText(buf);
+});
+
+Walker.get("/bu", (res) => {
+    res.unsafeSendBytesText(buf);
 });
 
 Walker.get("/allHeaders", (res) => {
@@ -89,7 +106,7 @@ Walker.get("/template.html", (res) => {
         my_var: `We have 10 Page visitors ${++counter}`
     };
 
-    res.sendTemplateResp('root', 'users/profile.html', JSON.stringify(data));
+     res.sendTemplateResp('root', 'users/profile.html', JSON.stringify(data));
 });
 
 Walker.get("/counter", (res) => {
@@ -152,7 +169,12 @@ Walker.get("/timeout", (res) => {
 });
 
 Walker.get('/db_call', async (res) => {
-    const query = await pool.query("SELECT * FROM main LIMIT 2");
+    const query = await pool.query("SELECT age, name FROM main LIMIT 2");
+    process.nextTick(() => res.sendObject(query));
+})
+
+Walker.get('/db_prepped', async (res) => {
+    const query = await prepped.query("SELECT * FROM main LIMIT 2");
     process.nextTick(() => res.sendObject(query));
 })
 
@@ -209,4 +231,4 @@ Walker.post("/post", (res) => {
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
-Walker.start("0.0.0.0:8081")
+Walker.start("0.0.0.0:8081", 8)

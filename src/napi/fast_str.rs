@@ -15,7 +15,7 @@ impl FromNapiValue for FastStr {
         const FAST_PATH_LEN: usize = 128;
         let mut ret = Vec::with_capacity(FAST_PATH_LEN);
         let mut len = 0;
-        let buf_ptr = ret.as_mut_ptr();
+        let mut buf_ptr = ret.as_mut_ptr();
 
         check_status!(
             sys::napi_get_value_string_utf8(env, napi_val, buf_ptr as *mut i8, FAST_PATH_LEN, &mut len),
@@ -29,7 +29,9 @@ impl FromNapiValue for FastStr {
             )?;
     
             len += 1;
-            ret.reserve(len - FAST_PATH_LEN);
+            ret.reserve_exact(len);
+
+            buf_ptr = ret.as_mut_ptr();
 
             check_status!(
                 sys::napi_get_value_string_utf8(env, napi_val, buf_ptr, len, &mut len),
@@ -44,7 +46,7 @@ impl FromNapiValue for FastStr {
         if from_utf8(&bytes).is_err() {
             return Err(Error::new(
                 Status::InvalidArg,
-                format!("Failed to read utf8 string,",),
+                "Failed to read utf8 string".to_string(),
             ));
         };
 

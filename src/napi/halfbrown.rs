@@ -8,6 +8,8 @@ use napi::{
     Env, Result, ValueType,
 };
 
+use crate::request::helpers::make_js_error;
+
 use super::fast_str::FastStr;
 
 pub struct HalfBrown<K, V>(pub HashMap<K, V>);
@@ -30,7 +32,9 @@ where
         let mut map = HashMap::with_capacity(names.len() as usize);
 
         for i in 0..names.len() {
-            let key = names.get::<FastStr>(i)?.unwrap();
+            let key = names
+                .get::<FastStr>(i)?
+                .ok_or_else(|| make_js_error("Value not found"))?;
 
             if let Some(val) = obj.get(&key.0)? {
                 map.insert(K::from(key.0), val);

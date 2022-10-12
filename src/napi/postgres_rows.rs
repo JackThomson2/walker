@@ -25,7 +25,7 @@ impl ToNapiValue for PostgresRows {
             &mut raw_arr
         ))?;
 
-        if val.0.len() == 0 {
+        if val.0.is_empty() {
             return Ok(raw_arr);
         };
 
@@ -103,7 +103,7 @@ unsafe fn get_basic<'a, T: FromSql<'a>>(
 ) -> Result<napi_value> {
     let raw_val = row
         .try_get::<_, Option<T>>(column_i)
-        .map_err(|_| make_js_error_string(format!("Error with column")))?;
+        .map_err(|_| make_js_error_string("Error with column".to_string()))?;
     raw_val.map_or_else(|| get_undefined(env), val_to_json_val)
 }
 
