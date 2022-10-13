@@ -6,10 +6,11 @@ use actix_service::{Service, ServiceFactory};
 use bytes::Bytes;
 use futures::future::LocalBoxFuture;
 use http::HeaderValue;
+use napi::sys;
 use tokio::sync::oneshot;
 
 use crate::{
-    request::RequestBlob,
+    request::{RequestBlob, unsafe_impl::store_constructor},
     router::{read_only::get_route, store::initialise_reader},
 };
 
@@ -104,12 +105,15 @@ fn run_server(address: String, workers: usize) -> std::io::Result<()> {
 }
 
 #[cold]
-pub fn start_server(address: String, workers: usize) {
+pub fn start_server(address: String, workers: usize, env: sys::napi_env) -> napi::Result<()> {
     initialise_reader();
+    unsafe { store_constructor(env)?; }
 
     std::thread::spawn(move || {
         if run_server(address, workers).is_err() {
             eprintln!("Error starting server.");
         }
     });
+
+    Ok(())
 }

@@ -13,13 +13,13 @@ let counter = 0;
 let pool = {}; 
 let prepped = {};
 
-setTimeout(async () => {
-    let new_pool = await Walker.connectDb("postgresql://localhost:5432?user=postgres&password=test", 4);
-    let new_prepped = await new_pool.prepareStatement("SELECT name FROM main LIMIT 1;", 4);
+// setTimeout(async () => {
+//     let new_pool = await Walker.connectDb("postgresql://localhost:5432?user=postgres&password=test", 4);
+//     let new_prepped = await new_pool.prepareStatement("SELECT name FROM main LIMIT 1;", 4);
 
-    pool = new_pool;
-    prepped = new_prepped;
-});
+//     pool = new_pool;
+//     prepped = new_prepped;
+// });
 
 Walker.loadNewTemplate('root', 'templates');
 
@@ -157,6 +157,12 @@ Walker.get("/hello/:name", (res) => {
     res.sendText(`Hello ${params.name}`);
 });
 
+Walker.get("/header/:name", (res) => {
+    const params = res.getUrlParams();
+    res.addHeader("name", params.name);
+    res.sendText(`Hello ${params.name}`);
+});
+
 Walker.get("/async", async (res) => {
     await timeout(1);
     res.sendText("Hello world");
@@ -231,4 +237,4 @@ Walker.post("/post", (res) => {
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
-Walker.start("0.0.0.0:8081", 8)
+Walker.start("0.0.0.0:8081", 4)

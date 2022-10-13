@@ -1,11 +1,21 @@
 use actix_http::{
-    header::{HeaderName, CONTENT_TYPE, SERVER, HeaderMap},
+    header::{HeaderMap, HeaderName, CONTENT_TYPE, SERVER},
     Response, StatusCode,
 };
 use bytes::{BufMut, Bytes, BytesMut};
 use http::HeaderValue;
 
 use crate::templates::render_string_to_writer;
+
+const WALKER_SERVER: HeaderValue = HeaderValue::from_static("walker");
+
+const TEXT_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+const JSON_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+const RAW_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+const HTML_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+
+const INTERNAL_SERVER_ERROR: Bytes = Bytes::from_static(b"Internal Server Error");
+
 
 pub struct JsResponse {
     pub inner: InnerResp,
@@ -25,7 +35,7 @@ pub enum InnerResp {
 fn render_internal_error() -> Response<Bytes> {
     Response::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
-        Bytes::from_static(b"Internal Server Error"),
+        INTERNAL_SERVER_ERROR
     )
 }
 
@@ -39,46 +49,40 @@ fn render_internal_error_with_message(message: &'static [u8]) -> Response<Bytes>
 }
 
 #[inline(always)]
-fn apply_headers(hdrs: &mut HeaderMap, message: &'static str, headers: Option<Vec<(Bytes, Bytes)>>) {
-  
-  let header = HeaderValue::from_static(message);
-  let server = HeaderValue::from_static("walker");
+fn apply_headers(
+    hdrs: &mut HeaderMap,
+    content_header: HeaderValue,
+    headers: Option<Vec<(Bytes, Bytes)>>,
+) {
+    hdrs.insert(SERVER, content_header);
+    hdrs.insert(CONTENT_TYPE, WALKER_SERVER);
 
-  hdrs.insert(SERVER, server);
-  hdrs.insert(CONTENT_TYPE, header);
+    if let Some(custom_headers) = headers {
+        for (key_b, val_b) in custom_headers {
+            let key = match HeaderName::from_bytes(&key_b) {
+                Ok(res) => res,
+                Err(e) => {
+                    println!("Error {:?}", e);
+                    continue;
+                }
+            };
 
-  if let Some(custom_headers) = headers {
-      for (key_b, val_b) in custom_headers {
-          let key = match HeaderName::from_bytes(&key_b) {
-              Ok(res) => res,
-              Err(e) => {
-                  println!("Error {:?}", e);
-                  continue;
-              }
-          };
-
-          let value = match HeaderValue::from_maybe_shared(val_b) {
-              Ok(res) => res,
-              Err(e) => {
-                  println!("Error {:?}", e);
-                  continue;
-              }
-          };
-
-          hdrs.insert(key, value);
-      }
-  }
-
+            unsafe {
+                let value = HeaderValue::from_maybe_shared_unchecked(val_b);
+                hdrs.insert(key, value);
+            }
+        }
+    }
 }
 
 impl JsResponse {
     #[inline(always)]
     pub fn apply_to_response(self) -> Response<Bytes> {
         let message = match &self.inner {
-            InnerResp::Text(_) => "text/plain; charset=UTF-8",
-            InnerResp::Json(_) => "application/json; charset=UTF-8",
-            InnerResp::Raw(_) => "application/octet-stream",
-            InnerResp::Template(_, _, _) => "text/html; charset=UTF-8",
+            InnerResp::Text(_) => TEXT_HEADER_VAL,
+            InnerResp::Json(_) => JSON_HEADER_VAL,
+            InnerResp::Raw(_) => RAW_HEADER_VAL,
+            InnerResp::Template(_, _, _) => HTML_HEADER_VAL,
             InnerResp::ServerError => return render_internal_error(),
         };
 
@@ -104,7 +108,7 @@ impl JsResponse {
         let hdrs = rsp.headers_mut();
 
         apply_headers(hdrs, message, self.headers);
-                
+
         rsp
     }
 }
