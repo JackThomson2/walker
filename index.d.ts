@@ -49,6 +49,7 @@ export function patch(route: string, callback: (result: RequestBlob) => void): v
 export function start(address: string, workers: number): void
 export function loadNewTemplate(groupName: string, directory: string): void
 export function reloadGroup(groupName: string): void
+export function getThreadAffinity(): Array<number>
 export class DbConnection {
   query(query: FastStr): object
   prepareStatement(query: string, count: number): Promise<PreparedStatement>
@@ -66,9 +67,18 @@ export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendBytesText(response: Buffer): void
   /** This needs to be called at the end of every request even if nothing is returned */
-  unsafeSendBytesText(response: Buffer): void
+  uncheckedSendBytesText(response: Buffer): void
+  /** This needs to be called at the end of every request even if nothing is returned */
+  sendEmptyText(response: Buffer): void
+  /** This needs to be called at the end of every request even if nothing is returned */
+  uncheckedSendEmptyText(response: Buffer): void
   /** This needs to be called at the end of every request even if nothing is returned */
   sendObject(response: any): void
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This needs to be a key value object, any other is undefined behaviour
+   */
+  sendFastObject(response: FasterValue): void
   /** This needs to be called at the end of every request even if nothing is returned */
   sendStringifiedObject(response: BuffStr): void
   /** This needs to be called at the end of every request even if nothing is returned */

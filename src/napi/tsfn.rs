@@ -188,8 +188,6 @@ unsafe extern "C" fn call_js_cb(
   let mut recv = ptr::null_mut();
   sys::napi_get_undefined(raw_env, &mut recv);
 
-  let mut result = ptr::null_mut();
-
   let res = match convert_to_napi(raw_env, data) {
     Some(res) => res,
     None => return
@@ -203,7 +201,7 @@ unsafe extern "C" fn call_js_cb(
     js_callback,
     1,
     args.as_ptr(),
-    &mut result,
+    std::ptr::null_mut(),
   );
 }
 

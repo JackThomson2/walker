@@ -7,7 +7,7 @@ use serde_json::Value;
 use tokio::sync::oneshot::Sender;
 
 use crate::{
-    napi::{buff_str::BuffStr, bytes_recv::JsBytes, fast_str::FastStr, halfbrown::HalfBrown},
+    napi::{buff_str::BuffStr, bytes_recv::JsBytes, fast_str::FastStr, halfbrown::HalfBrown, fast_serde::FasterValue},
     router,
 };
 
@@ -110,8 +110,24 @@ impl RequestBlob {
     #[inline(always)]
     #[napi(ts_args_type = "response: Buffer")]
     /// This needs to be called at the end of every request even if nothing is returned
-    pub fn unsafe_send_bytes_text(&mut self, response: JsBytes) {
+    pub fn unchecked_send_bytes_text(&mut self, response: JsBytes) {
         let message = InnerResp::Text(response.0);
+        let _ = self.send_result_checked(message, false);
+    }
+    
+    #[inline(always)]
+    #[napi(ts_args_type = "response: Buffer")]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn send_empty_text(&mut self) -> Result<()> {
+        let message = InnerResp::EmptyString;
+        self.send_result(message)
+    }
+
+    #[inline(always)]
+    #[napi(ts_args_type = "response: Buffer")]
+    /// This needs to be called at the end of every request even if nothing is returned
+    pub fn unchecked_send_empty_text(&mut self) {
+        let message = InnerResp::EmptyString;
         let _ = self.send_result_checked(message, false);
     }
 
@@ -122,6 +138,21 @@ impl RequestBlob {
         let bytes = BytesMut::with_capacity(128);
         let mut writer = bytes.writer();
         serde_json::to_writer(&mut writer, &response)
+            .map_err(|_| make_js_error("Error serialising data."))?;
+
+        let bytes = writer.into_inner();
+        let message = InnerResp::Json(bytes.freeze());
+        self.send_result(message)
+    }
+
+    #[inline(always)]
+    #[napi]
+    /// This needs to be called at the end of every request even if nothing is returned
+    /// This needs to be a key value object, any other is undefined behaviour
+    pub fn send_fast_object(&mut self, response: FasterValue) -> Result<()> {
+        let bytes = BytesMut::with_capacity(128);
+        let mut writer = bytes.writer();
+        serde_json::to_writer(&mut writer, &response.0)
             .map_err(|_| make_js_error("Error serialising data."))?;
 
         let bytes = writer.into_inner();

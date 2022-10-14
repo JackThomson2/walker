@@ -11,7 +11,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     request::{RequestBlob, unsafe_impl::store_constructor},
-    router::{read_only::get_route, store::initialise_reader},
+    router::{read_only::get_route, store::initialise_reader}, extras::scheduler::{try_pin_priority, pin_js_thread},
 };
 
 #[derive(Debug)]
@@ -62,7 +62,7 @@ impl Service<Request> for ActixHttpServer {
             );
 
             // We'll hand back to the tokio scheduler for now as we don't expect an instant response here
-            tokio::task::yield_now().await;
+            // tokio::task::yield_now().await;
 
             match rec.await {
                 Ok(res) => Ok(res.apply_to_response()),
@@ -83,7 +83,10 @@ impl ServiceFactory<Request> for AppFactory {
     type InitError = ();
     type Future = LocalBoxFuture<'static, Result<Self::Service, Self::InitError>>;
 
-    fn new_service(&self, _: ()) -> Self::Future {
+    fn new_service(&self, _: ()) -> Self::Future {        
+        // Set non priority here..
+        try_pin_priority();
+
         Box::pin(async move {
             Ok(ActixHttpServer {
                 _hdr_srv: HeaderValue::from_static("Walker"),
@@ -93,6 +96,9 @@ impl ServiceFactory<Request> for AppFactory {
 }
 
 fn run_server(address: String, workers: usize) -> std::io::Result<()> {
+    // Lets set net reciever priority here
+    try_pin_priority();
+
     actix_rt::System::new().block_on(
         Server::build()
             .backlog(1024)
@@ -108,6 +114,9 @@ fn run_server(address: String, workers: usize) -> std::io::Result<()> {
 pub fn start_server(address: String, workers: usize, env: sys::napi_env) -> napi::Result<()> {
     initialise_reader();
     unsafe { store_constructor(env)?; }
+
+    // Lets set js priority here
+    pin_js_thread();
 
     std::thread::spawn(move || {
         if run_server(address, workers).is_err() {

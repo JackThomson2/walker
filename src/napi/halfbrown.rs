@@ -19,6 +19,7 @@ where
     K: From<String> + Eq + Hash,
     V: FromNapiValue,
 {
+    #[inline(always)]
     unsafe fn from_napi_value(env: napi_env, napi_val: napi_value) -> Result<Self> {
         let obj = Object::from_napi_value(env, napi_val)?;
 

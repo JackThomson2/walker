@@ -50,7 +50,11 @@ Walker.get("/next_tick", (res) => {
 });
 
 Walker.get("/next_tick_u", (res) => {
-    process.nextTick(() => res.unsafeSendBytesText(buf));
+    process.nextTick(() => res.uncheckedSendBytesText(buf));
+});
+
+Walker.get("/blank", (res) => {
+    res.uncheckedSendEmptyText();
 });
 
 Walker.get("/next_tick_b", (res) => {
@@ -74,7 +78,7 @@ Walker.get("/b", (res) => {
 });
 
 Walker.get("/bu", (res) => {
-    res.unsafeSendBytesText(buf);
+    res.uncheckedSendBytesText(buf);
 });
 
 Walker.get("/allHeaders", (res) => {
@@ -123,6 +127,12 @@ Walker.get("/no_resp", async (_) => {
 
 });
 
+Walker.get("/affinity", (res) => {
+    res.sendStringifiedObject(JSON.stringify({
+        affinity: Walker.getThreadAffinity(),
+    }));
+});
+
 Walker.get("/headers", (res) => {
     let count = res.headerLength();
     let found = res.getHeader("Accept");
@@ -137,6 +147,14 @@ Walker.get("/params", (res) => {
 
 Walker.get("/json", (res) => {
     res.sendObject({
+        hello: "world",
+        json: "HERE",
+        count: `Counter is : ${++counter}`
+    });
+});
+
+Walker.get("/altjson", (res) => {
+    res.sendFastObject({
         hello: "world",
         json: "HERE",
         count: `Counter is : ${++counter}`
@@ -237,4 +255,4 @@ Walker.post("/post", (res) => {
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
-Walker.start("0.0.0.0:8081", 4)
+Walker.start("0.0.0.0:8081", 8)

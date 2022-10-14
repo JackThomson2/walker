@@ -28,7 +28,10 @@ pub enum InnerResp {
     Raw(Bytes),
     Template(String, String, String),
     ServerError,
+    EmptyString,
 }
+
+use InnerResp::*;
 
 #[cold]
 #[inline(never)]
@@ -79,19 +82,20 @@ impl JsResponse {
     #[inline(always)]
     pub fn apply_to_response(self) -> Response<Bytes> {
         let message = match &self.inner {
-            InnerResp::Text(_) => TEXT_HEADER_VAL,
-            InnerResp::Json(_) => JSON_HEADER_VAL,
-            InnerResp::Raw(_) => RAW_HEADER_VAL,
-            InnerResp::Template(_, _, _) => HTML_HEADER_VAL,
-            InnerResp::ServerError => return render_internal_error(),
+            Text(_) | EmptyString  => TEXT_HEADER_VAL,
+            Json(_) => JSON_HEADER_VAL,
+            Raw(_) => RAW_HEADER_VAL,
+            Template(_, _, _) => HTML_HEADER_VAL,
+            ServerError => return render_internal_error(),
         };
 
         let mut rsp = match self.inner {
-            InnerResp::Text(message) | InnerResp::Json(message) => {
+            Text(message) | Json(message) => {
                 Response::with_body(StatusCode::OK, message)
             }
-            InnerResp::Raw(data) => Response::with_body(StatusCode::OK, data),
-            InnerResp::Template(group, file, context) => {
+            Raw(data) => Response::with_body(StatusCode::OK, data),
+            EmptyString => Response::with_body(StatusCode::OK, Bytes::new()),
+            Template(group, file, context) => {
                 let buffer = BytesMut::with_capacity(2048);
                 let mut writer = buffer.writer();
 
