@@ -10,7 +10,7 @@ use napi::sys;
 use tokio::sync::oneshot;
 
 use crate::{
-    request::{RequestBlob, unsafe_impl::store_constructor},
+    request::{RequestBlob, unsafe_impl::store_constructor, obj_pool::build_up_pool},
     router::{read_only::get_route, store::initialise_reader}, extras::scheduler::{try_pin_priority, pin_js_thread},
 };
 
@@ -114,6 +114,8 @@ fn run_server(address: String, workers: usize) -> std::io::Result<()> {
 pub fn start_server(address: String, workers: usize, env: sys::napi_env) -> napi::Result<()> {
     initialise_reader();
     unsafe { store_constructor(env)?; }
+
+    unsafe { build_up_pool(env); }
 
     // Lets set js priority here
     pin_js_thread();

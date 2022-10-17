@@ -13,6 +13,7 @@ use std::sync::Arc;
 use napi::{check_status, sys, Result, Status};
 
 use crate::RequestBlob;
+use crate::request::obj_pool::reclaim_ref;
 use crate::request::unsafe_impl::convert_to_napi;
 
 
@@ -188,7 +189,7 @@ unsafe extern "C" fn call_js_cb(
   let mut recv = ptr::null_mut();
   sys::napi_get_undefined(raw_env, &mut recv);
 
-  let res = match convert_to_napi(raw_env, data) {
+  let (res, refference) = match convert_to_napi(raw_env, data) {
     Some(res) => res,
     None => return
   };
@@ -203,5 +204,7 @@ unsafe extern "C" fn call_js_cb(
     args.as_ptr(),
     std::ptr::null_mut(),
   );
+
+  reclaim_ref(raw_env, refference);
 }
 

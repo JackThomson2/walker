@@ -144,7 +144,6 @@ Walker.get("/params", (res) => {
     res.sendObject(headers);
 });
 
-
 Walker.get("/json", (res) => {
     res.sendObject({
         hello: "world",
