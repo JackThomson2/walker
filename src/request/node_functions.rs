@@ -1,13 +1,16 @@
-use std::mem::MaybeUninit;
+use std::mem::{self, MaybeUninit};
 
 use actix_http::{HttpMessage, Request};
 use bytes::{BufMut, Bytes, BytesMut};
-use napi::{bindgen_prelude::Uint8Array, Result};
+use napi::{bindgen_prelude::Uint8Array, sys, Result};
 use serde_json::Value;
 use tokio::sync::oneshot::Sender;
 
 use crate::{
-    napi::{buff_str::BuffStr, bytes_recv::JsBytes, fast_str::FastStr, halfbrown::HalfBrown, fast_serde::FasterValue},
+    napi::{
+        buff_str::BuffStr, bytes_recv::JsBytes, fast_serde::FasterValue, fast_str::FastStr,
+        halfbrown::HalfBrown,
+    },
     router,
 };
 
@@ -15,24 +18,41 @@ use super::{
     helpers::{
         convert_header_map, load_body_from_payload, make_js_error, split_and_get_query_params,
     },
-    response::{JsResponse, InnerResp},
+    response::{InnerResp, JsResponse},
 };
 
 #[napi]
 pub struct RequestBlob {
-    pub(crate) data: Request,
+    pub(crate) data: MaybeUninit<Request>,
     pub(crate) oneshot: MaybeUninit<Sender<JsResponse>>,
     pub(crate) sent: bool,
     pub(crate) body: Option<Bytes>,
-    pub(crate) headers: MaybeUninit<Option<Vec<(Bytes, Bytes)>>>
+    pub(crate) headers: MaybeUninit<Option<Vec<(Bytes, Bytes)>>>,
+    pub(crate) written: usize,
 }
 
 #[napi]
 impl RequestBlob {
+    pub fn new_empty_with_js(js_obj: sys::napi_value) -> Box<Self> {
+        let oneshot = MaybeUninit::uninit();
+        let headers = MaybeUninit::uninit();
+        let data = MaybeUninit::uninit();
+
+        Box::new(Self {
+            data,
+            oneshot,
+            sent: false,
+            body: None,
+            headers,
+            written: 0,
+        })
+    }
+
     #[inline]
     pub fn new_with_route(data: Request, sender: Sender<JsResponse>) -> Self {
         let oneshot = MaybeUninit::new(sender);
         let headers = MaybeUninit::new(None);
+        let data = MaybeUninit::new(data);
 
         Self {
             data,
@@ -40,7 +60,38 @@ impl RequestBlob {
             sent: false,
             body: None,
             headers,
+            written: 0,
         }
+    }
+
+    #[inline]
+    pub fn store_self_data(&mut self, data: Request, sender: Sender<JsResponse>) {
+        let oneshot = MaybeUninit::new(sender);
+        let headers = MaybeUninit::new(None);
+        let data = MaybeUninit::new(data);
+
+        if self.written > 0 {
+            unsafe {
+                self.data.assume_init_drop();
+            }
+        }
+
+        self.data = data;
+        self.oneshot = oneshot;
+        self.headers = headers;
+        self.body = None;
+        self.sent = false;
+        self.written += 1;
+    }
+
+    #[inline(always)]
+    fn get_data_val<'a>(&'a self) -> &'a Request {
+        unsafe { self.data.assume_init_ref() }
+    }
+
+    #[inline(always)]
+    fn get_data_val_mut(&mut self) -> &mut Request {
+        unsafe { self.data.assume_init_mut() }
     }
 
     #[inline(always)]
@@ -114,7 +165,7 @@ impl RequestBlob {
         let message = InnerResp::Text(response.0);
         let _ = self.send_result_checked(message, false);
     }
-    
+
     #[inline(always)]
     #[napi(ts_args_type = "response: Buffer")]
     /// This needs to be called at the end of every request even if nothing is returned
@@ -186,7 +237,7 @@ impl RequestBlob {
     /// Get the query parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn get_query_params(&self) -> Option<HalfBrown<String, String>> {
-        let query_string = self.data.uri().query()?.to_owned();
+        let query_string = self.get_data_val().uri().query()?.to_owned();
 
         Some(split_and_get_query_params(query_string))
     }
@@ -196,8 +247,8 @@ impl RequestBlob {
     /// Get the url parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn get_url_params(&self) -> Option<HalfBrown<String, String>> {
-        let method_str = self.data.method();
-        router::read_only::get_params(self.data.path(), method_str.clone())
+        let method_str = self.get_data_val().method();
+        router::read_only::get_params(self.get_data_val().path(), method_str.clone())
     }
 
     #[inline(always)]
@@ -205,7 +256,7 @@ impl RequestBlob {
     /// Get the url parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn header_length(&self) -> i64 {
-        let header_val = self.data.headers().len_keys();
+        let header_val = self.get_data_val().headers().len_keys();
 
         header_val as i64
     }
@@ -215,7 +266,7 @@ impl RequestBlob {
     /// Get the url parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn get_header(&self, name: FastStr) -> Option<String> {
-        let header_val = self.data.headers().get(name.0)?;
+        let header_val = self.get_data_val().headers().get(name.0)?;
 
         Some(header_val.to_str().ok()?.to_string())
     }
@@ -225,7 +276,7 @@ impl RequestBlob {
     /// Get the url parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn get_all_headers(&self) -> HalfBrown<String, String> {
-        let header_val = self.data.headers();
+        let header_val = self.get_data_val().headers();
         convert_header_map(header_val)
     }
 
@@ -234,14 +285,14 @@ impl RequestBlob {
     /// Add a new header to the response sent to the user
     pub fn add_header(&mut self, key: BuffStr, value: BuffStr) {
         if self.sent {
-            return
+            return;
         }
 
         let headers = unsafe { self.headers.assume_init_mut() };
 
         if let Some(list_of_headers) = headers {
             list_of_headers.push((key.0, value.0))
-        } else  {
+        } else {
             *headers = Some(vec![(key.0, value.0)])
         }
     }
@@ -254,7 +305,9 @@ impl RequestBlob {
             return Ok(body.clone().into());
         }
 
-        let bytes = load_body_from_payload(self.data.take_payload())?;
+        let mut_data = self.get_data_val_mut();
+
+        let bytes = load_body_from_payload(mut_data.take_payload())?;
         self.body = Some(bytes.clone());
 
         Ok(bytes.into())

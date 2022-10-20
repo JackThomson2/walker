@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{cell::UnsafeCell, convert::Infallible, rc::Rc};
 
 use actix_http::{body::BoxBody, HttpService, Request, Response};
 use actix_server::Server;
@@ -10,8 +10,12 @@ use napi::sys;
 use tokio::sync::oneshot;
 
 use crate::{
-    request::{RequestBlob, unsafe_impl::store_constructor, obj_pool::build_up_pool},
-    router::{read_only::get_route, store::initialise_reader}, extras::scheduler::{try_pin_priority, pin_js_thread},
+    extras::scheduler::{pin_js_thread, try_pin_priority},
+    request::{
+        request_pool::{build_up_pool, get_stored_chunk, StoredPair},
+        unsafe_impl::store_constructor,
+    },
+    router::{read_only::get_route, store::initialise_reader},
 };
 
 #[derive(Debug)]
@@ -25,6 +29,7 @@ impl From<Error> for Response<BoxBody> {
 
 struct ActixHttpServer {
     _hdr_srv: HeaderValue,
+    object_pool: Rc<UnsafeCell<Vec<StoredPair>>>,
 }
 
 #[cold]
@@ -36,6 +41,15 @@ fn get_failed_message() -> Result<Response<Bytes>, Infallible> {
     ))
 }
 
+impl ActixHttpServer {
+    #[inline(always)]
+    fn get_mut_from_unsafe<'a>(
+        unsafe_cell: &'a UnsafeCell<Vec<StoredPair>>,
+    ) -> &'a mut Vec<StoredPair> {
+        unsafe { &mut *unsafe_cell.get() }
+    }
+}
+
 impl Service<Request> for ActixHttpServer {
     type Response = Response<Bytes>;
     type Error = Infallible;
@@ -45,6 +59,8 @@ impl Service<Request> for ActixHttpServer {
 
     #[inline(always)]
     fn call(&self, req: Request) -> Self::Future {
+        let vec_ref = self.object_pool.clone();
+
         Box::pin(async move {
             let result = match get_route(req.path(), req.method().clone()) {
                 Some(res) => res,
@@ -53,21 +69,32 @@ impl Service<Request> for ActixHttpServer {
                 }
             };
 
+            let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
+            let mut to_use = to_add_back.pop().unwrap();
+
             let (send, rec) = oneshot::channel();
-            let msg_body = RequestBlob::new_with_route(req, send);
+            to_use.0.0.store_self_data(req, send);
 
             result.call(
-                msg_body,
+                to_use.0 .1,
                 crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
             );
 
             // We'll hand back to the tokio scheduler for now as we don't expect an instant response here
             // tokio::task::yield_now().await;
 
-            match rec.await {
+            let result = match rec.await {
                 Ok(res) => Ok(res.apply_to_response()),
                 Err(_) => get_failed_message(),
+            };
+
+            if to_add_back.len() == to_add_back.capacity() {
+                unsafe { std::hint::unreachable_unchecked() }
             }
+
+            to_add_back.push(to_use);
+
+            result
         })
     }
 }
@@ -83,13 +110,14 @@ impl ServiceFactory<Request> for AppFactory {
     type InitError = ();
     type Future = LocalBoxFuture<'static, Result<Self::Service, Self::InitError>>;
 
-    fn new_service(&self, _: ()) -> Self::Future {        
+    fn new_service(&self, _: ()) -> Self::Future {
         // Set non priority here..
         try_pin_priority();
 
         Box::pin(async move {
             Ok(ActixHttpServer {
                 _hdr_srv: HeaderValue::from_static("Walker"),
+                object_pool: unsafe { Rc::new(UnsafeCell::new(get_stored_chunk(5_000))) },
             })
         })
     }
@@ -113,9 +141,13 @@ fn run_server(address: String, workers: usize) -> std::io::Result<()> {
 #[cold]
 pub fn start_server(address: String, workers: usize, env: sys::napi_env) -> napi::Result<()> {
     initialise_reader();
-    unsafe { store_constructor(env)?; }
+    unsafe {
+        store_constructor(env)?;
+    }
 
-    unsafe { build_up_pool(env); }
+    unsafe {
+        build_up_pool(env);
+    }
 
     // Lets set js priority here
     pin_js_thread();
