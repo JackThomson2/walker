@@ -2,10 +2,10 @@ use actix_http::{
     header::{HeaderMap, HeaderName, CONTENT_TYPE, SERVER},
     Response, StatusCode,
 };
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::Bytes;
 use http::HeaderValue;
 
-use crate::templates::render_string_to_writer;
+use crate::templates::store_in_bytes_buffer;
 
 static WALKER_SERVER: HeaderValue = HeaderValue::from_static("walker");
 
@@ -15,7 +15,6 @@ static RAW_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; chars
 static HTML_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
 
 static INTERNAL_SERVER_ERROR: Bytes = Bytes::from_static(b"Internal Server Error");
-
 
 pub struct JsResponse {
     pub inner: InnerResp,
@@ -38,7 +37,7 @@ use InnerResp::*;
 fn render_internal_error() -> Response<Bytes> {
     Response::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
-        INTERNAL_SERVER_ERROR.clone()
+        INTERNAL_SERVER_ERROR.clone(),
     )
 }
 
@@ -82,7 +81,7 @@ impl JsResponse {
     #[inline(always)]
     pub fn apply_to_response(self) -> Response<Bytes> {
         let message = match &self.inner {
-            Text(_) | EmptyString  => TEXT_HEADER_VAL.clone(),
+            Text(_) | EmptyString => TEXT_HEADER_VAL.clone(),
             Json(_) => JSON_HEADER_VAL.clone(),
             Raw(_) => RAW_HEADER_VAL.clone(),
             Template(_, _, _) => HTML_HEADER_VAL.clone(),
@@ -90,22 +89,17 @@ impl JsResponse {
         };
 
         let mut rsp = match self.inner {
-            Text(message) | Json(message) => {
+            Text(message) | Json(message) | Raw(message) => {
                 Response::with_body(StatusCode::OK, message)
             }
-            Raw(data) => Response::with_body(StatusCode::OK, data),
-            EmptyString => Response::with_body(StatusCode::OK, Bytes::new()),
             Template(group, file, context) => {
-                let buffer = BytesMut::with_capacity(2048);
-                let mut writer = buffer.writer();
-
-                if render_string_to_writer(&group, &file, &context, &mut writer).is_err() {
-                    return render_internal_error_with_message(b"Error rendering template");
-                }
-
-                let buffer = writer.into_inner();
+                let buffer = match store_in_bytes_buffer(&group, &file, &context) {
+                    Ok(res) => res,
+                    Err(_) => return render_internal_error_with_message(b"Error rendering template"),
+                };
                 Response::with_body(StatusCode::OK, buffer.freeze())
             }
+            EmptyString => Response::with_body(StatusCode::OK, Bytes::new()),
             _ => unreachable!(),
         };
 

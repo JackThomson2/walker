@@ -1,6 +1,6 @@
 use std::{cell::UnsafeCell, convert::Infallible, rc::Rc};
 
-use actix_http::{body::BoxBody, HttpService, Request, Response};
+use actix_http::{HttpService, Request, Response};
 use actix_server::Server;
 use actix_service::{Service, ServiceFactory};
 use bytes::Bytes;
@@ -11,42 +11,21 @@ use tokio::sync::oneshot;
 
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority},
-    request::{
-        request_pool::{build_up_pool, get_stored_chunk, StoredPair},
-        unsafe_impl::store_constructor,
-    },
+    object_pool::{build_up_pool, get_stored_chunk, StoredPair},
     router::{read_only::get_route, store::initialise_reader},
 };
 
-#[derive(Debug)]
-enum Error {}
-
-impl From<Error> for Response<BoxBody> {
-    fn from(_err: Error) -> Self {
-        Response::internal_server_error()
-    }
-}
+use super::helpers::{get_failed_message, get_post_body};
 
 struct ActixHttpServer {
     _hdr_srv: HeaderValue,
     object_pool: Rc<UnsafeCell<Vec<StoredPair>>>,
 }
 
-#[cold]
-#[inline(never)]
-fn get_failed_message() -> Result<Response<Bytes>, Infallible> {
-    Ok(Response::with_body(
-        http::StatusCode::NOT_FOUND,
-        Bytes::new(),
-    ))
-}
-
 impl ActixHttpServer {
     #[allow(clippy::mut_from_ref)]
     #[inline(always)]
-    fn get_mut_from_unsafe(
-        unsafe_cell: &UnsafeCell<Vec<StoredPair>>,
-    ) -> &mut Vec<StoredPair> {
+    fn get_mut_from_unsafe(unsafe_cell: &UnsafeCell<Vec<StoredPair>>) -> &mut Vec<StoredPair> {
         unsafe { &mut *unsafe_cell.get() }
     }
 
@@ -71,7 +50,7 @@ impl Service<Request> for ActixHttpServer {
     actix_service::always_ready!();
 
     #[inline(always)]
-    fn call(&self, req: Request) -> Self::Future {
+    fn call(&self, mut req: Request) -> Self::Future {
         let vec_ref = self.object_pool.clone();
 
         Box::pin(async move {
@@ -82,33 +61,42 @@ impl Service<Request> for ActixHttpServer {
                 }
             };
 
+            let mut body = None;
+
+            if req.method() == http::Method::POST {
+                body = match get_post_body(req.payload()).await {
+                    Ok(body) => Some(body),
+                    Err(_) => {
+                        return get_failed_message();
+                    }
+                };
+            }
+
             let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
-            let mut to_use = match to_add_back.pop() {
+            let mut js_obj = match to_add_back.pop() {
                 Some(res) => res,
-                None => Self::backoff_get_object(to_add_back).await
+                None => Self::backoff_get_object(to_add_back).await,
             };
 
             let (send, rec) = oneshot::channel();
-            to_use.0.0.store_self_data(req, send);
+            js_obj.0 .0.store_self_data(req, send, body);
 
             result.call(
-                to_use.0 .1,
+                js_obj.0 .1,
                 crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
             );
-
-            // We'll hand back to the tokio scheduler for now as we don't expect an instant response here
-            // tokio::task::yield_now().await;
 
             let result = match rec.await {
                 Ok(res) => Ok(res.apply_to_response()),
                 Err(_) => get_failed_message(),
             };
 
+            // Saves a check check for length we can be sure that the vec is not full
             if to_add_back.len() == to_add_back.capacity() {
                 unsafe { std::hint::unreachable_unchecked() }
             }
 
-            to_add_back.push(to_use);
+            to_add_back.push(js_obj);
 
             result
         })
@@ -127,13 +115,12 @@ impl ServiceFactory<Request> for AppFactory {
     type Future = LocalBoxFuture<'static, Result<Self::Service, Self::InitError>>;
 
     fn new_service(&self, _: ()) -> Self::Future {
-        // Set non priority here..
         try_pin_priority();
 
         Box::pin(async move {
             Ok(ActixHttpServer {
                 _hdr_srv: HeaderValue::from_static("Walker"),
-                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(1))),
+                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(10_000))),
             })
         })
     }
@@ -158,11 +145,7 @@ fn run_server(address: String, workers: usize) -> std::io::Result<()> {
 pub fn start_server(address: String, workers: usize, env: sys::napi_env) -> napi::Result<()> {
     initialise_reader();
     unsafe {
-        store_constructor(env)?;
-    }
-
-    unsafe {
-        build_up_pool(env);
+        build_up_pool(env, workers * 10_000)?;
     }
 
     // Lets set js priority here

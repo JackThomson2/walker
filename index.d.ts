@@ -63,8 +63,6 @@ export class RequestBlob {
   /** This needs to be called at the end of every request even if nothing is returned */
   sendFastText(response: FastStr): void
   /** This needs to be called at the end of every request even if nothing is returned */
-  sendNapiText(response: string): void
-  /** This needs to be called at the end of every request even if nothing is returned */
   sendBytesText(response: Buffer): void
   /** This needs to be called at the end of every request even if nothing is returned */
   uncheckedSendBytesText(response: Buffer): void
@@ -112,7 +110,4 @@ export class RequestBlob {
   addHeader(key: BuffStr, value: BuffStr): void
   /** Retrieve the raw body bytes in a Uint8Array to be used */
   getBody(): Uint8Array
-}
-export class ObjectTemplate {
-  static createTemplate(obj: object): this
 }

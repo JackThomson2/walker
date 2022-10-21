@@ -1,8 +1,8 @@
-use actix_http::{header::HeaderMap, Payload};
-use bytes::BytesMut;
-use futures::StreamExt;
+use actix_http::{header::HeaderMap};
+use bytes::{BytesMut, Bytes, BufMut};
 use halfbrown::HashMap;
 use napi::{Error, Result, Status};
+use serde_json::Value;
 
 use crate::napi::halfbrown::HalfBrown;
 
@@ -66,15 +66,13 @@ pub fn convert_header_map(header_val: &HeaderMap) -> HalfBrown<String, String> {
 }
 
 #[inline(always)]
-pub fn load_body_from_payload(mut payload: Payload) -> Result<bytes::Bytes> {
-    extreme::run(async move {
-        let mut bytes = BytesMut::with_capacity(1024);
+pub fn value_to_bytes(value: Value) -> Result<Bytes> {
+    let bytes = BytesMut::with_capacity(128);
+    let mut writer = bytes.writer();
+    serde_json::to_writer(&mut writer, &value)
+        .map_err(|_| make_js_error("Error serialising data."))?;
 
-        while let Some(item) = payload.next().await {
-            let item = item.map_err(|_| make_js_error("Error reading payload"))?;
-            bytes.extend_from_slice(&item);
-        }
+    let bytes = writer.into_inner();
 
-        Ok(bytes.freeze())
-    })
+    Ok(bytes.freeze())
 }
