@@ -42,11 +42,24 @@ fn get_failed_message() -> Result<Response<Bytes>, Infallible> {
 }
 
 impl ActixHttpServer {
+    #[allow(clippy::mut_from_ref)]
     #[inline(always)]
-    fn get_mut_from_unsafe<'a>(
-        unsafe_cell: &'a UnsafeCell<Vec<StoredPair>>,
-    ) -> &'a mut Vec<StoredPair> {
+    fn get_mut_from_unsafe(
+        unsafe_cell: &UnsafeCell<Vec<StoredPair>>,
+    ) -> &mut Vec<StoredPair> {
         unsafe { &mut *unsafe_cell.get() }
+    }
+
+    #[inline(never)]
+    #[cold]
+    async fn backoff_get_object(items: &mut Vec<StoredPair>) -> StoredPair {
+        loop {
+            tokio::task::yield_now().await;
+
+            if let Some(retrieved) = items.pop() {
+                return retrieved;
+            }
+        }
     }
 }
 
@@ -70,7 +83,10 @@ impl Service<Request> for ActixHttpServer {
             };
 
             let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
-            let mut to_use = to_add_back.pop().unwrap();
+            let mut to_use = match to_add_back.pop() {
+                Some(res) => res,
+                None => Self::backoff_get_object(to_add_back).await
+            };
 
             let (send, rec) = oneshot::channel();
             to_use.0.0.store_self_data(req, send);
@@ -117,7 +133,7 @@ impl ServiceFactory<Request> for AppFactory {
         Box::pin(async move {
             Ok(ActixHttpServer {
                 _hdr_srv: HeaderValue::from_static("Walker"),
-                object_pool: unsafe { Rc::new(UnsafeCell::new(get_stored_chunk(5_000))) },
+                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(1))),
             })
         })
     }

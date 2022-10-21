@@ -7,14 +7,14 @@ use http::HeaderValue;
 
 use crate::templates::render_string_to_writer;
 
-const WALKER_SERVER: HeaderValue = HeaderValue::from_static("walker");
+static WALKER_SERVER: HeaderValue = HeaderValue::from_static("walker");
 
-const TEXT_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
-const JSON_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
-const RAW_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
-const HTML_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+static TEXT_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+static JSON_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+static RAW_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+static HTML_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
 
-const INTERNAL_SERVER_ERROR: Bytes = Bytes::from_static(b"Internal Server Error");
+static INTERNAL_SERVER_ERROR: Bytes = Bytes::from_static(b"Internal Server Error");
 
 
 pub struct JsResponse {
@@ -38,7 +38,7 @@ use InnerResp::*;
 fn render_internal_error() -> Response<Bytes> {
     Response::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
-        INTERNAL_SERVER_ERROR
+        INTERNAL_SERVER_ERROR.clone()
     )
 }
 
@@ -58,7 +58,7 @@ fn apply_headers(
     headers: Option<Vec<(Bytes, Bytes)>>,
 ) {
     hdrs.insert(SERVER, content_header);
-    hdrs.insert(CONTENT_TYPE, WALKER_SERVER);
+    hdrs.insert(CONTENT_TYPE, WALKER_SERVER.clone());
 
     if let Some(custom_headers) = headers {
         for (key_b, val_b) in custom_headers {
@@ -82,10 +82,10 @@ impl JsResponse {
     #[inline(always)]
     pub fn apply_to_response(self) -> Response<Bytes> {
         let message = match &self.inner {
-            Text(_) | EmptyString  => TEXT_HEADER_VAL,
-            Json(_) => JSON_HEADER_VAL,
-            Raw(_) => RAW_HEADER_VAL,
-            Template(_, _, _) => HTML_HEADER_VAL,
+            Text(_) | EmptyString  => TEXT_HEADER_VAL.clone(),
+            Json(_) => JSON_HEADER_VAL.clone(),
+            Raw(_) => RAW_HEADER_VAL.clone(),
+            Template(_, _, _) => HTML_HEADER_VAL.clone(),
             ServerError => return render_internal_error(),
         };
 

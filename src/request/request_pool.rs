@@ -16,14 +16,7 @@ static POOL: Mutex<Vec<StoredPair>> = Mutex::new(vec![]);
 
 const INITIAL_POOL_SIZE: usize = 100_000;
 
-pub unsafe fn get_from_pool() -> StoredPair {
-    let mut locked = POOL.lock();
-    let obj = locked.pop().unwrap();
-
-    obj
-}
-
-pub unsafe fn get_stored_chunk(count: usize) -> Vec<StoredPair> {
+pub fn get_stored_chunk(count: usize) -> Vec<StoredPair> {
     let mut locked = POOL.lock();
     let split_point = locked.len() - count;
 
@@ -63,10 +56,10 @@ pub unsafe fn build_up_pool(env: sys::napi_env) {
             return;
         }
 
-        let native_object = RequestBlob::new_empty_with_js(found_obj);
+        let native_object = RequestBlob::new_empty_with_js();
         let raw_obj = Box::into_raw(native_object);
 
-        let result = sys::napi_wrap(
+        let _result = sys::napi_wrap(
             env,
             found_obj,
             raw_obj as *mut c_void,

@@ -1,11 +1,9 @@
-use std::{cell::UnsafeCell, ffi::c_void, mem::MaybeUninit, sync::atomic::{Ordering, AtomicUsize, AtomicIsize}};
+use std::{cell::UnsafeCell, mem::MaybeUninit, sync::atomic::Ordering};
 
 use napi::{sys, Result};
-use parking_lot::Mutex;
 
-use crate::RequestBlob;
 
-use super::{helpers::make_js_error, obj_pool::{get_from_pool, reclaim_ref}};
+use super::{helpers::make_js_error};
 
 struct Constructor(UnsafeCell<MaybeUninit<sys::napi_ref>>);
 
@@ -32,24 +30,24 @@ pub fn get_ctor() -> sys::napi_ref {
     unsafe { *(*CONSTRUCTOR.0.get()).as_ptr() }
 }
 
-#[inline(always)]
-pub unsafe fn convert_to_napi(
-    env: sys::napi_env,
-    wrapped_value: *mut c_void,
-) -> Option<(sys::napi_value, sys::napi_ref)> {
-    let (reffer, value) = get_from_pool(env);
-    let result = sys::napi_wrap(
-        env,
-        value,
-        wrapped_value,
-        None,
-        std::ptr::null_mut(),
-        std::ptr::null_mut(),
-    );
+// #[inline(always)]
+// pub unsafe fn convert_to_napi(
+//     env: sys::napi_env,
+//     wrapped_value: *mut c_void,
+// ) -> Option<(sys::napi_value, sys::napi_ref)> {
+//     let (reffer, value) = get_from_pool(env);
+//     let result = sys::napi_wrap(
+//         env,
+//         value,
+//         wrapped_value,
+//         None,
+//         std::ptr::null_mut(),
+//         std::ptr::null_mut(),
+//     );
     
-    if result != sys::Status::napi_ok
-    {
-        return None;
-    }
-    Some((value, reffer))
-}
+//     if result != sys::Status::napi_ok
+//     {
+//         return None;
+//     }
+//     Some((value, reffer))
+// }

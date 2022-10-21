@@ -7,7 +7,7 @@ version = "0.0.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "2.7.0", default-features = false, features = ["napi4", "serde-json", "compat-mode"] }
+napi = { git = "https://github.com/JackThomson2/napi-rs.git", default-features = false, features = ["napi4", "serde-json", "compat-mode"] }
 napi-derive = "2.7.0"
 matchit = "0.6"
 snmalloc-rs = { version = "*", features = ["build_cc"] }

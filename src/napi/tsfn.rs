@@ -12,10 +12,6 @@ use std::sync::Arc;
 
 use napi::{check_status, sys, Result, Status};
 
-use crate::request::obj_pool::reclaim_ref;
-use crate::request::unsafe_impl::convert_to_napi;
-use crate::RequestBlob;
-
 #[repr(u8)]
 pub enum ThreadsafeFunctionCallMode {
     NonBlocking,

@@ -1,8 +1,8 @@
-use std::mem::{self, MaybeUninit};
+use std::mem::MaybeUninit;
 
 use actix_http::{HttpMessage, Request};
 use bytes::{BufMut, Bytes, BytesMut};
-use napi::{bindgen_prelude::Uint8Array, sys, Result};
+use napi::{bindgen_prelude::Uint8Array, Result};
 use serde_json::Value;
 use tokio::sync::oneshot::Sender;
 
@@ -33,7 +33,7 @@ pub struct RequestBlob {
 
 #[napi]
 impl RequestBlob {
-    pub fn new_empty_with_js(js_obj: sys::napi_value) -> Box<Self> {
+    pub fn new_empty_with_js() -> Box<Self> {
         let oneshot = MaybeUninit::uninit();
         let headers = MaybeUninit::uninit();
         let data = MaybeUninit::uninit();
@@ -85,7 +85,7 @@ impl RequestBlob {
     }
 
     #[inline(always)]
-    fn get_data_val<'a>(&'a self) -> &'a Request {
+    fn get_data_val(&self) -> &Request {
         unsafe { self.data.assume_init_ref() }
     }
 
