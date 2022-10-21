@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use thread_priority::*;
 
 struct CoreAffinityTracker {
     curr_index: usize,
@@ -36,17 +35,9 @@ lazy_static! {
     };
 }
 
-pub fn set_priority() {
-    if set_current_thread_priority(ThreadPriority::Max).is_err() {
-        println!("Error setting priority");
-    }
-}
-
 #[cold]
 #[inline(never)]
 pub fn pin_js_thread() {
-    set_priority();
-
     pin_thread_inner();
 }
 #[cold]
@@ -76,8 +67,6 @@ fn pin_thread_inner() {
 #[cold]
 #[inline(never)]
 pub fn try_pin_priority() {
-    set_priority();
-
     pin_thread_inner()
 }
 

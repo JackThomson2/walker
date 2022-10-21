@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bytes::{BytesMut, buf::Writer};
+use bytes::{BytesMut, buf::Writer, BufMut};
 use lazy_static::lazy_static;
 use napi::Result;
 use parking_lot::RwLock;
@@ -63,4 +63,16 @@ pub(crate) fn render_string_to_writer(
 ) -> Result<()> {
     let parsed: Value = serde_json::from_str(data).map_err(|_| make_generic_error())?;
     render_value_to_writer(group_name, file_name, parsed, writer)
+}
+
+#[inline(always)]
+pub(crate) fn store_in_bytes_buffer(
+    group_name: &str,
+    file_name: &str,
+    data: &str,
+) -> Result<BytesMut> {
+    let buffer = BytesMut::with_capacity(1024);
+    let mut writer = buffer.writer();
+    render_string_to_writer(group_name, file_name, data, &mut writer)?;
+    Ok(writer.into_inner())
 }

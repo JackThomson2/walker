@@ -8,6 +8,7 @@ use napi::{
     Result, ValueType,
 };
 
+/// This is String from JS which is stored in a bytes buffer
 pub struct BuffStr(pub Bytes);
 
 impl FromNapiValue for BuffStr {

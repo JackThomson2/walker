@@ -31,6 +31,11 @@ Walker.get("/", (res) => {
     res.sendText(response);
 });
 
+Walker.get("/slow_caller", async (res) => {
+    await timeout(1000);
+    res.sendText(response);
+});
+
 Walker.get("/fast", (res) => {
     res.sendFastText(response);
 });
@@ -254,4 +259,4 @@ Walker.post("/post", (res) => {
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
-Walker.start("0.0.0.0:8081", 8)
+Walker.start("0.0.0.0:8081", 12)
