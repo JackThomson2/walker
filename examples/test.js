@@ -31,6 +31,11 @@ Walker.get("/", (res) => {
     res.sendText(response);
 });
 
+Walker.get("/slow_caller", async (res) => {
+    await timeout(1000);
+    res.sendText(response);
+});
+
 Walker.get("/fast", (res) => {
     res.sendFastText(response);
 });

@@ -54,11 +54,6 @@ impl RequestBlob {
     }
 
     #[inline(always)]
-    pub(crate) fn get_data_val_mut(&mut self) -> &mut Request {
-        unsafe { self.data.assume_init_mut() }
-    }
-
-    #[inline(always)]
     pub fn send_result_checked(&mut self, inner: InnerResp, checked: bool) -> Result<()> {
         if checked && self.sent {
             return Err(make_js_error("Already sent response."));
