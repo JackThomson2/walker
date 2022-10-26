@@ -1,15 +1,15 @@
 {
-  "name": "@walker/server-linux-x64-gnu",
+  "name": "@walker/server-linux-arm64-gnu",
   "version": "0.0.1",
   "os": [
     "linux"
   ],
   "cpu": [
-    "x64"
+    "arm64"
   ],
-  "main": "server.linux-x64-gnu.node",
+  "main": "server.linux-arm64-gnu.node",
   "files": [
-    "server.linux-x64-gnu.node"
+    "server.linux-arm64-gnu.node"
   ],
   "license": "MIT",
   "engines": {

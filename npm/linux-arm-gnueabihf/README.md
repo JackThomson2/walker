@@ -1,3 +1,3 @@
-# `walker-linux-arm-gnueabihf`
+# `@walker/server-linux-arm-gnueabihf`
 
-This is the **armv7-unknown-linux-gnueabihf** binary for `walker`
+This is the **armv7-unknown-linux-gnueabihf** binary for `@walker/server`

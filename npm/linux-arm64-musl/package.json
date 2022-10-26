@@ -1,21 +1,21 @@
 {
-  "name": "@walker/server-linux-x64-gnu",
+  "name": "@walker/server-linux-arm64-musl",
   "version": "0.0.1",
   "os": [
     "linux"
   ],
   "cpu": [
-    "x64"
+    "arm64"
   ],
-  "main": "server.linux-x64-gnu.node",
+  "main": "server.linux-arm64-musl.node",
   "files": [
-    "server.linux-x64-gnu.node"
+    "server.linux-arm64-musl.node"
   ],
   "license": "MIT",
   "engines": {
     "node": ">= 10"
   },
   "libc": [
-    "glibc"
+    "musl"
   ]
 }

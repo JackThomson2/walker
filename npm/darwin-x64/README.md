@@ -1,3 +1,3 @@
-# `walker-darwin-x64`
+# `@walker/server-darwin-x64`
 
-This is the **x86_64-apple-darwin** binary for `walker`
+This is the **x86_64-apple-darwin** binary for `@walker/server`

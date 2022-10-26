@@ -1,15 +1,15 @@
 {
-  "name": "walker-linux-arm-gnueabihf",
-  "version": "0.0.0",
+  "name": "@walker/server-linux-arm-gnueabihf",
+  "version": "0.0.1",
   "os": [
     "linux"
   ],
   "cpu": [
     "arm"
   ],
-  "main": "walker.linux-arm-gnueabihf.node",
+  "main": "server.linux-arm-gnueabihf.node",
   "files": [
-    "walker.linux-arm-gnueabihf.node"
+    "server.linux-arm-gnueabihf.node"
   ],
   "license": "MIT",
   "engines": {
