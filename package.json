@@ -14,7 +14,8 @@
   "license": "MIT",
   "devDependencies": {
     "@napi-rs/cli": "^2.11.4",
-    "ava": "^4.3.3"
+    "ava": "^4.3.3",
+    "node-fetch": "^3.2.10"
   },
   "engines": {
     "node": ">= 10"
@@ -24,8 +25,8 @@
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava ./__test__/index.spec.mjs",
-    "test:stress": "ava ./__test__/stress.spec.mjs",
+    "test": "ava -T 60s ./__test__/index.spec.mjs",
+    "test:stress": "ava -T 60s ./__test__/stress.spec.mjs",
     "version": "napi version"
   }
 }

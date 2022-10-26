@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 napi = { git = "https://github.com/JackThomson2/napi-rs.git", default-features = false, features = ["napi4", "serde-json", "compat-mode"] }
 napi-derive = "2.7.0"
 matchit = "0.6"
-snmalloc-rs = { version = "*", features = ["build_cc"] }
 bytes = "1.2.1"
 serde_json = "1.0.85"
 lazy_static = "1.4.0"
@@ -26,8 +25,16 @@ parking_lot = "0.12.1"
 simdutf8 = "0.1.4"
 halfbrown = "0.1.15"
 tokio-postgres = { version = "0.7.7", features = ["with-serde_json-1" ] }
-affinity = "0.1.2"
 num_cpus = "1.13.1"
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+mimalloc-rust = { version = "0.2" }
+
+[target.'cfg(all(target_os = "linux", not(all(target_env = "musl", target_arch = "aarch64"))))'.dependencies]
+mimalloc-rust = { version = "0.2", features = ["local-dynamic-tls"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+affinity = "0.1.2"
 
 [build-dependencies]
 napi-build = "2.0.1"

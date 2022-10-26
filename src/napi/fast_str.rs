@@ -18,7 +18,7 @@ impl FromNapiValue for FastStr {
         let mut buf_ptr = ret.as_mut_ptr();
 
         check_status!(
-            sys::napi_get_value_string_utf8(env, napi_val, buf_ptr as *mut i8, FAST_PATH_LEN, &mut len),
+            sys::napi_get_value_string_utf8(env, napi_val, buf_ptr as *mut _, FAST_PATH_LEN, &mut len),
             "Failed to convert napi `string` into rust type `String`",
         )?;
 

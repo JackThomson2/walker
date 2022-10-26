@@ -1,4 +1,5 @@
 import test from 'ava'
+import fetch from 'node-fetch';
 
 import registerRoutes from './stess_rig.mjs';
 
@@ -11,7 +12,7 @@ test.serial.before(async (_) => {
 });
 
 test.serial.before(async (_) => {
-    Walker.start("0.0.0.0:8080", 2);
+    Walker.start("0.0.0.0:8080", 4);
 
     // Sleeep for 100ms to let server start
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -51,7 +52,7 @@ test.serial("Get /cpu returns Hello World 5 times", async t => {
 });
 
 // Make 1000 post requests with incrementing body index and check the response
-test.serial("Post /return_text_body returns Hello World 10000 times", async t => {
+test("Post /return_text_body returns Hello World 10000 times", async t => {
     const promises = [];
     for (let i = 0; i < 1000; i++) {
         promises.push(fetch("http://0.0.0.0:8080/return_text_body", { method: 'POST', body: i.toString() }));

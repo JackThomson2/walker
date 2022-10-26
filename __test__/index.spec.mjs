@@ -1,4 +1,5 @@
 import test from 'ava'
+import fetch from 'node-fetch';
 
 import registerRoutes from './standard_rig.mjs';
 

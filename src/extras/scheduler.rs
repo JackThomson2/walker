@@ -1,4 +1,6 @@
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use lazy_static::lazy_static;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use parking_lot::Mutex;
 
 struct CoreAffinityTracker {
@@ -9,6 +11,7 @@ struct CoreAffinityTracker {
 }
 
 impl CoreAffinityTracker {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     pub fn new() -> Self {
         let cores = affinity::get_core_num();
         let physical = num_cpus::get_physical();
@@ -28,6 +31,7 @@ impl CoreAffinityTracker {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 lazy_static! {
     static ref TRACKER: Mutex<CoreAffinityTracker> = {
         let tracker = CoreAffinityTracker::new();
@@ -40,6 +44,8 @@ lazy_static! {
 pub fn pin_js_thread() {
     pin_thread_inner();
 }
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 #[cold]
 #[inline(never)]
 fn pin_thread_inner() {
@@ -64,12 +70,16 @@ fn pin_thread_inner() {
     }
 }
 
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn pin_thread_inner() {}
+
 #[cold]
 #[inline(never)]
 pub fn try_pin_priority() {
     pin_thread_inner()
 }
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 #[cold]
 #[inline(never)]
 pub fn try_pin_non_priority() {
@@ -85,3 +95,6 @@ pub fn try_pin_non_priority() {
         println!("werror getting afinity");
     }
 }
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+pub fn try_pin_non_priority() {}

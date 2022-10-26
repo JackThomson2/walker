@@ -1,3 +1,4 @@
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 #[cold]
 #[napi]
 pub fn get_thread_affinity() -> Vec<u32> {
@@ -10,4 +11,11 @@ pub fn get_thread_affinity() -> Vec<u32> {
     };
 
     res.into_iter().map(|core| core as u32).collect()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cold]
+#[napi]
+pub fn get_thread_affinity() -> Vec<u32> {
+    vec![]
 }
