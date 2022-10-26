@@ -24,7 +24,8 @@
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
+    "test": "ava ./__test__/index.spec.mjs",
+    "test:stress": "ava ./__test__/stress.spec.mjs",
     "version": "napi version"
   }
 }
