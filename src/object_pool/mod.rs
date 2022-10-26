@@ -39,8 +39,6 @@ pub unsafe fn build_up_pool(env: sys::napi_env, pool_size: usize) -> Result<()> 
     let mut locked_pool = POOL.lock();
     locked_pool.reserve(pool_size);
 
-    println!("Pooling objects");
-
     for _ in 0..pool_size {
         let mut result = std::ptr::null_mut();
         if sys::napi_new_instance(env, ctor, 0, std::ptr::null_mut(), &mut result)
@@ -54,17 +52,12 @@ pub unsafe fn build_up_pool(env: sys::napi_env, pool_size: usize) -> Result<()> 
             return Err(make_js_error("Error creating the reference."));
         }
 
-        let mut found_obj = std::ptr::null_mut();
-        if sys::napi_get_reference_value(env, reffering, &mut found_obj) != sys::Status::napi_ok {
-            return Err(make_js_error("Error doing the deref."));
-        }
-
         let native_object = RequestBlob::new_empty_with_js();
         let raw_obj = Box::into_raw(native_object);
 
         let _result = sys::napi_wrap(
             env,
-            found_obj,
+            result,
             raw_obj as *mut c_void,
             None,
             std::ptr::null_mut(),
