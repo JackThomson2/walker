@@ -2,6 +2,7 @@
   "name": "@walker/server",
   "version": "0.0.1",
   "main": "index.js",
+  "repository": "git@github.com:JackThomson2/walker.git",
   "types": "index.d.ts",
   "napi": {
     "name": "server",
