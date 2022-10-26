@@ -1,9 +1,17 @@
 {
-  "name": "@walker/server",
-  "version": "0.0.1",
+  "name": "@walkerserver/server",
+  "version": "0.0.2",
+  "description": "A fast, easy to use HTTP server",
   "main": "index.js",
   "repository": "git@github.com:JackThomson2/walker.git",
   "types": "index.d.ts",
+  "keywords": [
+    "Server",
+    "HTTP",
+    "Rust",
+    "node-addon",
+    "node-addon-api"
+  ],
   "napi": {
     "name": "server",
     "triples": {
@@ -17,6 +25,10 @@
         "i686-pc-windows-msvc"
       ]
     }
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "license": "MIT",
   "devDependencies": {

@@ -1,3 +1,3 @@
-# `@walker/server-darwin-arm64`
+# `@walkerserver/server-darwin-arm64`
 
-This is the **aarch64-apple-darwin** binary for `@walker/server`
+This is the **aarch64-apple-darwin** binary for `@walkerserver/server`

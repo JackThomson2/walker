@@ -12,3 +12,5 @@ yarn.lock
 __test__
 renovate.json
 templates
+src
+examples

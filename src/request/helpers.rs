@@ -43,7 +43,7 @@ pub fn split_and_get_query_params(query_string: String) -> HalfBrown<String, Str
             None => continue,
         };
 
-        params.insert(key.to_string(), val.to_string());
+        params.insert(key.to_owned(), val.to_owned());
     }
 
     HalfBrown(params)

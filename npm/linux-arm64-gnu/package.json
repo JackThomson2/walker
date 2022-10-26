@@ -1,6 +1,6 @@
 {
-  "name": "@walker/server-linux-arm64-gnu",
-  "version": "0.0.1",
+  "name": "@walkerserver/server-linux-arm64-gnu",
+  "version": "0.0.2",
   "os": [
     "linux"
   ],
@@ -11,10 +11,23 @@
   "files": [
     "server.linux-arm64-gnu.node"
   ],
+  "description": "A fast, easy to use HTTP server",
+  "keywords": [
+    "Server",
+    "HTTP",
+    "Rust",
+    "node-addon",
+    "node-addon-api"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">= 10"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "repository": "git@github.com:JackThomson2/walker.git",
   "libc": [
     "glibc"
   ]

@@ -1,3 +1,3 @@
-# `@walker/server-win32-arm64-msvc`
+# `@walkerserver/server-win32-arm64-msvc`
 
-This is the **aarch64-pc-windows-msvc** binary for `@walker/server`
+This is the **aarch64-pc-windows-msvc** binary for `@walkerserver/server`

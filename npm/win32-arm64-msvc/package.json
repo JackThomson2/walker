@@ -1,6 +1,6 @@
 {
-  "name": "@walker/server-win32-arm64-msvc",
-  "version": "0.0.1",
+  "name": "@walkerserver/server-win32-arm64-msvc",
+  "version": "0.0.2",
   "os": [
     "win32"
   ],
@@ -11,8 +11,21 @@
   "files": [
     "server.win32-arm64-msvc.node"
   ],
+  "description": "A fast, easy to use HTTP server",
+  "keywords": [
+    "Server",
+    "HTTP",
+    "Rust",
+    "node-addon",
+    "node-addon-api"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">= 10"
-  }
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "repository": "git@github.com:JackThomson2/walker.git"
 }

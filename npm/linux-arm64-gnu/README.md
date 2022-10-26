@@ -1,3 +1,3 @@
-# `@walker/server-linux-arm64-gnu`
+# `@walkerserver/server-linux-arm64-gnu`
 
-This is the **aarch64-unknown-linux-gnu** binary for `@walker/server`
+This is the **aarch64-unknown-linux-gnu** binary for `@walkerserver/server`
