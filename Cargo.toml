@@ -26,6 +26,7 @@ simdutf8 = "0.1.4"
 halfbrown = "0.1.15"
 tokio-postgres = { version = "0.7.7", features = ["with-serde_json-1" ] }
 num_cpus = "1.13.1"
+extreme = "666.666.666666"
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 mimalloc-rust = { version = "0.2" }

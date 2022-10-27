@@ -9,7 +9,6 @@ use super::fast_str::FastStr;
 
 pub struct FasterValue(pub Value);
 
-
 impl FromNapiValue for FasterValue {
     #[inline(always)]
     unsafe fn from_napi_value(env: napi_env, napi_val: napi_value) -> Result<Self> {

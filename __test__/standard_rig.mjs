@@ -6,6 +6,10 @@ const registerRoutes = () => {
         res.sendText("Hello World");
     });
 
+    Walker.get("/unchecked", (res) => {
+        res.sendTextUnchecked("Hello World");
+    });
+
     Walker.get("/async", async (res) => {
         res.sendText("Hello World");
     });
@@ -18,6 +22,13 @@ const registerRoutes = () => {
     Walker.get("/hello/:name", (res) => {
         const params = res.getUrlParams();
         res.sendText(`Hello ${params.name}`);
+    });
+
+    Walker.get("/status/:code", (res) => {
+        const params = res.getUrlParams();
+
+        res.setStatusCode(parseInt(params.code));
+        res.sendText(`Status code: ${params.code}`);
     });
 
     Walker.get("/headers", (res) => {
@@ -38,10 +49,34 @@ const registerRoutes = () => {
         });
     });
 
+    Walker.get("/fastJson", (res) => {
+        res.sendFastObject({
+            hello: "world",
+            json: "HERE"
+        });
+    });
+
+    Walker.get("/stringifiedJson", (res) => {
+        const object = {
+            hello: "world",
+            json: "HERE"
+        };
+
+        res.sendStringifiedObject(JSON.stringify(object));
+    });
+
+    Walker.get("/internalServerError", (res) => {
+        res.sendInternalServerError();
+    });
+
+    Walker.get("/errorWithMessage", (res) => {
+        res.sendInternalServerErrorWithMessage("This is an error");
+    });
+
     // A slow running function blocking the cpu
     Walker.get("/cpu", (res) => {
         let i = 0;
-        while (i < 1000000000) {
+        while (i < 100000000) {
             i++;
         }
 

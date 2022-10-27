@@ -30,7 +30,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.android-arm64.node')
           } else {
-            nativeBinding = require('@walker/server-android-arm64')
+            nativeBinding = require('@walkerserver/server-android-arm64')
           }
         } catch (e) {
           loadError = e
@@ -42,7 +42,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.android-arm-eabi.node')
           } else {
-            nativeBinding = require('@walker/server-android-arm-eabi')
+            nativeBinding = require('@walkerserver/server-android-arm-eabi')
           }
         } catch (e) {
           loadError = e
@@ -62,7 +62,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.win32-x64-msvc.node')
           } else {
-            nativeBinding = require('@walker/server-win32-x64-msvc')
+            nativeBinding = require('@walkerserver/server-win32-x64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -76,7 +76,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.win32-ia32-msvc.node')
           } else {
-            nativeBinding = require('@walker/server-win32-ia32-msvc')
+            nativeBinding = require('@walkerserver/server-win32-ia32-msvc')
           }
         } catch (e) {
           loadError = e
@@ -90,7 +90,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.win32-arm64-msvc.node')
           } else {
-            nativeBinding = require('@walker/server-win32-arm64-msvc')
+            nativeBinding = require('@walkerserver/server-win32-arm64-msvc')
           }
         } catch (e) {
           loadError = e
@@ -108,7 +108,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.darwin-x64.node')
           } else {
-            nativeBinding = require('@walker/server-darwin-x64')
+            nativeBinding = require('@walkerserver/server-darwin-x64')
           }
         } catch (e) {
           loadError = e
@@ -122,7 +122,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.darwin-arm64.node')
           } else {
-            nativeBinding = require('@walker/server-darwin-arm64')
+            nativeBinding = require('@walkerserver/server-darwin-arm64')
           }
         } catch (e) {
           loadError = e
@@ -141,7 +141,7 @@ switch (platform) {
       if (localFileExisted) {
         nativeBinding = require('./server.freebsd-x64.node')
       } else {
-        nativeBinding = require('@walker/server-freebsd-x64')
+        nativeBinding = require('@walkerserver/server-freebsd-x64')
       }
     } catch (e) {
       loadError = e
@@ -158,7 +158,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./server.linux-x64-musl.node')
             } else {
-              nativeBinding = require('@walker/server-linux-x64-musl')
+              nativeBinding = require('@walkerserver/server-linux-x64-musl')
             }
           } catch (e) {
             loadError = e
@@ -171,7 +171,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./server.linux-x64-gnu.node')
             } else {
-              nativeBinding = require('@walker/server-linux-x64-gnu')
+              nativeBinding = require('@walkerserver/server-linux-x64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -187,7 +187,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./server.linux-arm64-musl.node')
             } else {
-              nativeBinding = require('@walker/server-linux-arm64-musl')
+              nativeBinding = require('@walkerserver/server-linux-arm64-musl')
             }
           } catch (e) {
             loadError = e
@@ -200,7 +200,7 @@ switch (platform) {
             if (localFileExisted) {
               nativeBinding = require('./server.linux-arm64-gnu.node')
             } else {
-              nativeBinding = require('@walker/server-linux-arm64-gnu')
+              nativeBinding = require('@walkerserver/server-linux-arm64-gnu')
             }
           } catch (e) {
             loadError = e
@@ -215,7 +215,7 @@ switch (platform) {
           if (localFileExisted) {
             nativeBinding = require('./server.linux-arm-gnueabihf.node')
           } else {
-            nativeBinding = require('@walker/server-linux-arm-gnueabihf')
+            nativeBinding = require('@walkerserver/server-linux-arm-gnueabihf')
           }
         } catch (e) {
           loadError = e
@@ -236,7 +236,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { DbConnection, connectDb, PreparedStatement, Methods, newRoute, get, post, put, patch, RequestBlob, start, loadNewTemplate, reloadGroup, getThreadAffinity } = nativeBinding
+const { DbConnection, connectDb, PreparedStatement, Methods, newRoute, get, post, put, patch, RequestBlob, start, startWithWorkerCount, startWithConfig, stop, loadNewTemplate, reloadGroup, getThreadAffinity } = nativeBinding
 
 module.exports.DbConnection = DbConnection
 module.exports.connectDb = connectDb
@@ -249,6 +249,9 @@ module.exports.put = put
 module.exports.patch = patch
 module.exports.RequestBlob = RequestBlob
 module.exports.start = start
+module.exports.startWithWorkerCount = startWithWorkerCount
+module.exports.startWithConfig = startWithConfig
+module.exports.stop = stop
 module.exports.loadNewTemplate = loadNewTemplate
 module.exports.reloadGroup = reloadGroup
 module.exports.getThreadAffinity = getThreadAffinity

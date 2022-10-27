@@ -18,7 +18,6 @@ impl CoreAffinityTracker {
 
         let mut jump = 1;
         if physical < cores {
-            println!("Hyperthreading enabled, pinning to each physical core");
             jump = 2;
         }
 
@@ -38,6 +37,20 @@ lazy_static! {
         Mutex::new(tracker)
     };
 }
+
+#[cold]
+#[inline(never)]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+pub fn reset_thread_affinity() {
+    let mut tracker = TRACKER.lock();
+
+    tracker.min = 0;
+    tracker.max = affinity::get_core_num();
+    tracker.curr_index = 0;
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+pub fn reset_thread_affinity() {}
 
 #[cold]
 #[inline(never)]

@@ -46,7 +46,32 @@ export function patch(route: string, callback: (result: RequestBlob) => void): v
  * This is called to start the server the address will need to include the IP and port
  * e.g. localhost:8080
  */
-export function start(address: string, workers: number): void
+export function start(address: string): void
+/**
+ * This is called to start the server the address will need to include the IP and port
+ * This allows you to configure the number of workers
+ */
+export function startWithWorkerCount(address: string, workers: number): void
+/**
+ * This is called to start the server the address will need to include the IP and port
+ * This allows you to configure more of the parameters of the server current options are all options need to be strings:
+ *
+ * url: The url to listen on
+ *
+ * worker_threads: The number of worker threads to use
+ *
+ * backlog: The number of connections to queue up
+ *
+ * pool_per_worker_size: The size of the pool per worker
+ *
+ * debug: Whether to enable debug mode
+ */
+export function startWithConfig(config: HalfBrown): void
+/**
+ * Attempts to stop the server, returns if it woreked
+ * Experimental at the moment
+ */
+export function stop(): boolean
 export function loadNewTemplate(groupName: string, directory: string): void
 export function reloadGroup(groupName: string): void
 export function getThreadAffinity(): Array<number>
@@ -58,29 +83,86 @@ export class PreparedStatement {
   query(): object
 }
 export class RequestBlob {
-  /** This needs to be called at the end of every request even if nothing is returned */
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This sent a raw text string to the client
+   */
   sendText(response: String): void
-  /** This needs to be called at the end of every request even if nothing is returned */
-  sendFastText(response: String): void
-  /** This needs to be called at the end of every request even if nothing is returned */
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This sent a raw text string to the client
+   * This method will not check if a previous response has been sent doing so will result in undefined behavior but will be faster
+   */
+  sendTextUnchecked(response: String): void
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This sent a raw text string to the client but from a Javascript buffer, this can be faster
+   */
   sendBytesText(response: Buffer): void
-  /** This needs to be called at the end of every request even if nothing is returned */
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This sent a raw text string to the client but from a Javascript buffer, this can be faster
+   * This method will not check if a previous response has been sent doing so will result in undefined behavior but will be faster
+   */
   uncheckedSendBytesText(response: Buffer): void
-  /** This needs to be called at the end of every request even if nothing is returned */
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This will send an empty string to the user, useful for testing
+   */
   sendEmptyText(): void
-  /** This needs to be called at the end of every request even if nothing is returned */
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This will send an empty string to the user, useful for testing
+   * This method will not check if a previous response has been sent doing so will result in undefined behavior but will be faster
+   */
   uncheckedSendEmptyText(): void
-  /** This needs to be called at the end of every request even if nothing is returned */
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This will send a JSON object to client, it will be serialized rust side so no need to stringify
+   */
   sendObject(response: any): void
   /**
    * This needs to be called at the end of every request even if nothing is returned
+   * This will send a JSON object to client, it will be serialized rust side so no need to stringify
    * This needs to be a key value object, any other is undefined behaviour
    */
-  sendFastObject(response: any): void
-  /** This needs to be called at the end of every request even if nothing is returned */
-  sendStringifiedObject(response: BuffStr): void
-  /** This needs to be called at the end of every request even if nothing is returned */
-  sendTemplateResp(groupName: FastStr, fileName: FastStr, contextJson: FastStr): void
+  sendFastObject(response: Object): void
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This will send a JSON object to client, it will be serialized rust side so no need to stringify
+   * This needs to be a key value object, any other is undefined behaviour
+   * This method will not check if a previous response has been sent doing so will result in undefined behavior but will be faster
+   * The return value will only indicate if the message was sent or not
+   */
+  sendFastObjectUnchecked(response: Object): boolean
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This will send a JSON object to client, however this is for objects that are already serialized to a string
+   */
+  sendStringifiedObject(response: String): void
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This will render a template and send it to the client
+   * The function takes in the group name which needs to be registerd earlier, the file name and the context object which includes the data to be rendered
+   */
+  sendTemplateResp(group: String, file: String, context: String): void
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This can be used to notify of a server error
+   */
+  sendInternalServerError(): void
+  /**
+   * This needs to be called at the end of every request even if nothing is returned
+   * This can be used to notify of a server error with a message to display
+   */
+  sendInternalServerErrorWithMessage(message: BuffStr): void
+  /** Add a new header to the response sent to the user */
+  addHeader(key: BuffStr, value: BuffStr): void
+  /**
+   * Set the returning status code for this response to the user
+   * Returns a boolean to indicate if the status code was set
+   */
+  setStatusCode(status: number): boolean
   /**
    * Get the query parameters as an object with each key and value
    * this will only be null if an error has occurred
@@ -106,8 +188,6 @@ export class RequestBlob {
    * this will only be null if an error has occurred
    */
   getAllHeaders(): HalfBrown
-  /** Add a new header to the response sent to the user */
-  addHeader(key: BuffStr, value: BuffStr): void
   /** Retrieve the raw body bytes in a Uint8Array to be used */
   getBody(): Uint8Array
 }

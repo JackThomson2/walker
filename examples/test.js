@@ -4,7 +4,7 @@ function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const response = "Hello World"
+const response = "Hello World!"
 
 const buf = new Uint8Array(Buffer.from(response, 'utf8'));
 
@@ -28,7 +28,7 @@ function do_resp(resp) {
 }
 
 Walker.get("/", (res) => {
-    res.sendText(response);
+    res.sendTextUnchecked(response);
 });
 
 Walker.get("/slow_caller", async (res) => {
@@ -173,7 +173,6 @@ Walker.get("/sjson", (res) => {
     }));
 });
 
-
 Walker.get("/hello/:name", (res) => {
     const params = res.getUrlParams();
     res.sendText(`Hello ${params.name}`);
@@ -252,11 +251,19 @@ Walker.get('/db_count', async (res) => {
     const result = await pool.query(`SELECT reltuples AS estimate FROM pg_class WHERE relname = 'main';`);
     const value = parseInt(result[0][0][0]);
     res.sendObject({value});
-})
+});
+
+Walker.get("/serverError", (res) => {
+    res.sendInternalServerError();
+});
+
+Walker.get("/serverErrorWithMessage", (res) => {
+    res.sendInternalServerErrorWithMessage("This is a test");
+});
 
 Walker.post("/post", (res) => {
     const body = res.getBody();
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
-Walker.start("0.0.0.0:8081", 12)
+Walker.startWithWorkerCount("0.0.0.0:8081", 12)

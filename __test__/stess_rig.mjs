@@ -10,7 +10,7 @@ const registerRoutes = () => {
     // Cpu blocking function
     Walker.get("/cpu", (res) => {
         let i = 0;
-        while (i < 10000000) {
+        while (i < 100000) {
             i++;
         }
 

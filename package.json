@@ -34,7 +34,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.11.4",
     "ava": "^4.3.3",
-    "node-fetch": "^3.2.10"
+    "axios": "^1.1.3"
   },
   "engines": {
     "node": ">= 10"
@@ -46,6 +46,7 @@
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava -T 60s ./__test__/index.spec.mjs",
     "test:stress": "ava -T 60s ./__test__/stress.spec.mjs",
+    "test:saturate": "ava -T 600s ./__test__/saturation.spec.mjs",
     "version": "napi version"
   }
 }
