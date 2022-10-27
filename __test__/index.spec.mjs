@@ -1,6 +1,4 @@
 import test from 'ava'
-import fetchlib from 'unfetch';
-
 import axios from 'axios';
 
 import registerRoutes from './standard_rig.mjs';
