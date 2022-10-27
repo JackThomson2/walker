@@ -34,7 +34,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.11.4",
     "ava": "^4.3.3",
-    "node-fetch": "^3.2.10"
+    "axios": "^1.1.3"
   },
   "engines": {
     "node": ">= 10"

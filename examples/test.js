@@ -257,6 +257,10 @@ Walker.get("/serverError", (res) => {
     res.sendInternalServerError();
 });
 
+Walker.get("/serverErrorWithMessage", (res) => {
+    res.sendInternalServerErrorWithMessage("This is a test");
+});
+
 Walker.post("/post", (res) => {
     const body = res.getBody();
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);

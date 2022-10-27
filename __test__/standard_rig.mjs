@@ -69,8 +69,8 @@ const registerRoutes = () => {
         res.sendInternalServerError();
     });
 
-    Walker.get("/errorWithMesasge", (res) => {
-        res.sendErrorWithMessage("This is an error");
+    Walker.get("/errorWithMessage", (res) => {
+        res.sendInternalServerErrorWithMessage("This is an error");
     });
 
     // A slow running function blocking the cpu

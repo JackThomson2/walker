@@ -1,12 +1,18 @@
 import test from 'ava'
-import fetch from 'node-fetch';
+import fetchlib from 'unfetch';
+
+import axios from 'axios';
 
 import registerRoutes from './standard_rig.mjs';
 
 import * as Walker from '../index.js'
 
+const Server = axios.create({
+  baseURL: 'http://0.0.0.0:8080/'
+});
+
 test.serial.before(async (_) => {
-	// This runs before all tests
+  // This runs before all tests
   registerRoutes();
 
   Walker.startWithWorkerCount("0.0.0.0:8080", 1);
@@ -16,76 +22,69 @@ test.serial.before(async (_) => {
 });
 
 test("Get / returns Hello World", async t => {
-    const response = await fetch("http://0.0.0.0:8080/");
-    const text = await response.text();
-    t.is(text, "Hello World");
+  const response = await Server.get("/");
+  t.is(response.data, "Hello World");
 });
 
 test("Get /unchecked returns Hello World", async t => {
-    const response = await fetch("http://0.0.0.0:8080/unchecked");
-    const text = await response.text();
-
-    t.is(text, "Hello World");
+  const response = await Server.get("/unchecked");
+  t.is(response.data, "Hello World");
 });
 
 test("Get /async returns Hello World", async t => {
-    const response = await fetch("http://0.0.0.0:8080/async");
-    const text = await response.text();
-
-    t.is(text, "Hello World");
+  const response = await Server.get("/async");
+  t.is(response.data, "Hello World");
 });
 
 test("Get /sleep returns Hello World", async t => {
-    const response = await fetch("http://0.0.0.0:8080/sleep");
-    const text = await response.text();
+  const response = await Server.get("/sleep");
 
-    t.is(text, "Hello World");
+  t.is(response.data, "Hello World");
 });
 
 test("Get /hello/jack returns Hello jack", async t => {
-    const response = await fetch("http://0.0.0.0:8080/hello/jack");
-    const text = await response.text();
+  const response = await Server.get("/hello/jack");
 
-    t.is(text, "Hello jack");
+  t.is(response.data, "Hello jack");
 });
 
 test("Get /headers returns headers", async t => {
-    const sentHeaders = {
-      testing: "testing",
-    };
+  const sentHeaders = {
+    testing: "testing",
+  };
 
-    const response = await fetch("http://0.0.0.0:8080/headers", { method: 'GET', headers: sentHeaders});
-    const headers = await response.json();
+  const response = await Server.get("/headers", { method: 'GET', headers: sentHeaders });
+  const headers = response.data;
 
-    t.not(headers.testing, undefined);
-    t.is(headers.testing, sentHeaders.testing);
+  t.not(headers.testing, undefined);
+  t.is(headers.testing, sentHeaders.testing);
 });
 
 test("Get /params returns params", async t => {
-    const response = await fetch("http://0.0.0.0:8080/params?testing=testing");
-    const json = await response.json();
-    const expecting = {
-      testing: "testing",
-    };
+  const response = await Server.get("/params?testing=testing");
+  const json = response.data;
+  const expecting = {
+    testing: "testing",
+  };
 
-    t.deepEqual(json, expecting);
+  t.deepEqual(json, expecting);
 });
 
 test("Get /json returns json", async t => {
-    const response = await fetch("http://0.0.0.0:8080/json");
-    const json = await response.json();
+  const response = await Server.get("/json");
+  const json = response.data;
 
-    const expecting = {
-      hello: "world",
-      json: "HERE"
-    };
+  const expecting = {
+    hello: "world",
+    json: "HERE"
+  };
 
-    t.deepEqual(json, expecting);
+  t.deepEqual(json, expecting);
 });
 
 test("Get /fastJson returns json", async t => {
-  const response = await fetch("http://0.0.0.0:8080/fastJson");
-  const json = await response.json();
+  const response = await Server.get("/fastJson");
+  const json = response.data;
 
   const expecting = {
     hello: "world",
@@ -96,8 +95,8 @@ test("Get /fastJson returns json", async t => {
 });
 
 test("Get /stringifiedJson returns json", async t => {
-  const response = await fetch("http://0.0.0.0:8080/stringifiedJson");
-  const json = await response.json();
+  const response = await Server.get("/stringifiedJson");
+  const json = response.data;
 
   const expecting = {
     hello: "world",
@@ -108,51 +107,57 @@ test("Get /stringifiedJson returns json", async t => {
 });
 
 test("Get /status/200 returns 200", async t => {
-    const response = await fetch("http://0.0.0.0:8080/status/200");
-    const text = await response.text();
-    t.is(text, "Status code: 200");
-    t.is(response.status, 200);
+  const response = await Server.get("/status/200");
+
+  t.is(response.data, "Status code: 200");
+  t.is(response.status, 200);
 });
 
 test("Get /status/201 returns 201", async t => {
-    const response = await fetch("http://0.0.0.0:8080/status/201");
-    const text = await response.text();
-    t.is(text, "Status code: 201");
-    t.is(response.status, 201);
+  const response = await Server.get("/status/201");
+
+  t.is(response.data, "Status code: 201");
+  t.is(response.status, 201);
 });
 
 test("Get /internalError returns 500", async t => {
-    const response = await fetch("http://0.0.0.0:8080/internalServerError");
-    const text = await response.text();
-
-    t.is(text, "Internal Server Error");
-    t.is(response.status, 500);
+  try {
+    const _ = await Server.get("/internalServerError");
+    t.fail();
+  } catch (error) {
+    t.is(error.response.data, "Internal Server Error");
+    t.is(error.response.status, 500);
+  }
 });
 
 test("Get /errorWithMessage returns 500", async t => {
-    const response = await fetch("http://0.0.0.0:8080/errorWithMessage");
-    const text = await response.text();
-
-    t.is(text, "This is an error");
-    t.is(response.status, 500);
+  try {
+    const _ = await Server.get("/errorWithMessage");
+    t.fail();
+  } catch (error) {
+    t.is(error.response.data, "This is an error");
+    t.is(error.response.status, 500);
+  }
 });
 
 test("Get /notFound returns 404", async t => {
-    const response = await fetch("http://0.0.0.0:8080/notFound");
-
-    t.is(response.status, 404);
+  try {
+    const _ = await Server.get("/notFound");
+    t.fail();
+  } catch (error) {
+    t.is(error.response.status, 404);
+  }
 });
 
 // Run this in serial as we're blocking the cpu here.
 test.serial("Get /cpu returns Hello World", async t => {
-    const response = await fetch("http://0.0.0.0:8080/cpu");
-    const text = await response.text();
-    t.is(text, "Hello World");
+  const response = await Server.get("/cpu");
+
+  t.is(response.data, "Hello World");
 });
 
 test("Post /return_text_body returns text body", async t => {
-    const response = await fetch("http://0.0.0.0:8080/return_text_body", { method: 'POST', body: "testing" });
-    const text = await response.text();
+  const response = await Server.post("/return_text_body", "testing");
 
-    t.is(text, "testing");
+  t.is(response.data, "testing");
 });
