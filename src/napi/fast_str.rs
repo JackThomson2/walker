@@ -11,6 +11,7 @@ use simdutf8::basic::from_utf8;
 pub struct FastStr(pub String);
 
 impl FromNapiValue for FastStr {
+    #[inline(always)]
     unsafe fn from_napi_value(env: napi_env, napi_val: napi_value) -> Result<Self> {
         const FAST_PATH_LEN: usize = 128;
         let mut ret = Vec::with_capacity(FAST_PATH_LEN);
@@ -38,10 +39,9 @@ impl FromNapiValue for FastStr {
                 "Failed to convert napi `string` into rust type `String`"
             )?;
         }
+        ret.set_len(len);
 
-        let mut ret = mem::ManuallyDrop::new(ret);
-        let buf_ptr = ret.as_mut_ptr();
-        let bytes = { Vec::from_raw_parts(buf_ptr as *mut u8, len, len) };
+        let bytes = mem::transmute::<Vec<_>, Vec<u8>>(ret);
 
         if from_utf8(&bytes).is_err() {
             return Err(Error::new(
@@ -51,6 +51,7 @@ impl FromNapiValue for FastStr {
         };
 
         let new_str = String::from_utf8_unchecked(bytes);
+
         Ok(Self(new_str))
     }
 }

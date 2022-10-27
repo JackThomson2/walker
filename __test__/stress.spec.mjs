@@ -5,14 +5,11 @@ import registerRoutes from './stess_rig.mjs';
 
 import * as Walker from '../index.js'
 
-
 test.serial.before(async (_) => {
     // This runs before all tests
     registerRoutes();
-});
 
-test.serial.before(async (_) => {
-    Walker.start("0.0.0.0:8080", 4);
+    Walker.startWithWorkerCount("0.0.0.0:8080", 4);
 
     // Sleeep for 100ms to let server start
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -35,16 +32,16 @@ test.serial("Get / returns Hello World", async t => {
 });
 
 // We'll send multiple requests to the server to see if it can handle it
-test.serial("Get /cpu returns Hello World 5 times", async t => {
+test.serial("Get /cpu returns Hello World 500 times", async t => {
     const promises = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 500; i++) {
         promises.push(fetch("http://0.0.0.0:8080/cpu"));
     }
 
     const responses = await Promise.all(promises);
     const texts = await Promise.all(responses.map((response) => response.text()));
 
-    t.is(texts.length, 5);
+    t.is(texts.length, 500);
     // check all the responses are correct
     texts.forEach((text) => {
         t.is(text, "Hello World");

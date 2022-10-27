@@ -11,6 +11,7 @@ use napi::{
 pub struct JsBytes(pub bytes::Bytes);
 
 impl FromNapiValue for JsBytes {
+    #[inline(always)]
     unsafe fn from_napi_value(env: napi_env, napi_val: napi_value) -> Result<Self> {
         let mut typed_array_type = 0;
         let mut length = 0;

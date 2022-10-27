@@ -12,6 +12,7 @@ use napi::{
 pub struct BuffStr(pub Bytes);
 
 impl FromNapiValue for BuffStr {
+    #[inline(always)]
     unsafe fn from_napi_value(env: napi_env, napi_val: napi_value) -> Result<Self> {
         const FAST_PATH_LEN: usize = 128;
 

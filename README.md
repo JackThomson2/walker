@@ -7,13 +7,13 @@ The key focus of this project is to provide a simple, easy to use, and fast HTTP
 #### Installation
 
 ```bash
-npm install walker
+npm install @walkerserver/server
 ```
 
 #### Usage
 
 ```javascript
-const Walker = require('walker');
+const Walker = require('@walkerserver/server');
 
 Walker.get("/", (req) => {
     req.sendText("Hello World!");

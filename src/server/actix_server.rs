@@ -10,12 +10,15 @@ use napi::sys;
 use tokio::sync::oneshot;
 
 use crate::{
-    extras::scheduler::{pin_js_thread, try_pin_priority},
+    extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
     object_pool::{build_up_pool, get_stored_chunk, StoredPair},
-    router::{read_only::get_route, store::initialise_reader},
+    router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
 };
 
-use super::helpers::{get_failed_message, get_post_body};
+use super::{
+    config::ServerConfig,
+    helpers::{get_failed_message, get_post_body}, shutdown::{attach_server_handle, try_own_start},
+};
 
 struct ActixHttpServer {
     _hdr_srv: HeaderValue,
@@ -104,7 +107,7 @@ impl Service<Request> for ActixHttpServer {
 }
 
 #[derive(Clone)]
-struct AppFactory;
+struct AppFactory(usize);
 
 impl ServiceFactory<Request> for AppFactory {
     type Config = ();
@@ -117,42 +120,55 @@ impl ServiceFactory<Request> for AppFactory {
     fn new_service(&self, _: ()) -> Self::Future {
         try_pin_priority();
 
+        let chunk_size = self.0;
+
         Box::pin(async move {
             Ok(ActixHttpServer {
                 _hdr_srv: HeaderValue::from_static("Walker"),
-                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(10_000))),
+                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(chunk_size))),
             })
         })
     }
 }
 
-fn run_server(address: String, workers: usize) -> std::io::Result<()> {
+async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
+    let pool_size = config.pool_per_worker_size;
+
+    let srv = Server::build()
+        .backlog(config.backlog as u32)
+        .bind("walker_server_h1", &config.url, move || {
+            HttpService::build().finish(AppFactory(pool_size)).tcp()
+        })?
+        .workers(config.worker_threads)
+        .run();
+
+    attach_server_handle(srv.handle());
+
+    srv.await
+}
+
+fn run_server(config: ServerConfig) -> std::io::Result<()> {
     // Lets set net reciever priority here
     try_pin_priority();
 
-    actix_rt::System::new().block_on(
-        Server::build()
-            .backlog(1024)
-            .bind("walker_server_h1", &address, || {
-                HttpService::build().finish(AppFactory).tcp()
-            })?
-            .workers(workers)
-            .run(),
-    )
+    actix_rt::System::new().block_on(create_sever(config))
 }
 
 #[cold]
-pub fn start_server(address: String, workers: usize, env: sys::napi_env) -> napi::Result<()> {
-    initialise_reader();
-    unsafe {
-        build_up_pool(env, workers * 10_000)?;
+pub fn start_server(config: ServerConfig, env: sys::napi_env) -> napi::Result<()> {
+    if !try_own_start() {
+        return Err(make_js_error("Server already started"));
     }
+    
+    reset_thread_affinity();
+    initialise_reader();
+    unsafe { build_up_pool(env, config.get_pool_size())?; }
 
     // Lets set js priority here
     pin_js_thread();
 
     std::thread::spawn(move || {
-        if run_server(address, workers).is_err() {
+        if run_server(config).is_err() {
             eprintln!("Error starting server.");
         }
     });

@@ -16,6 +16,7 @@ pub struct RequestBlob {
     pub(crate) body: Option<Bytes>,
     pub(crate) headers: MaybeUninit<Option<Vec<(Bytes, Bytes)>>>,
     pub(crate) written: usize,
+    pub(crate) status_code: Option<u16>,
 }
 
 impl RequestBlob {
@@ -27,6 +28,7 @@ impl RequestBlob {
             body: None,
             headers: MaybeUninit::uninit(),
             written: 0,
+            status_code: None,
         })
     }
     
@@ -46,6 +48,7 @@ impl RequestBlob {
         self.body = body;
         self.sent = false;
         self.written += 1;
+        self.status_code = None;
     }
 
     #[inline(always)]
@@ -70,7 +73,7 @@ impl RequestBlob {
             result.assume_init()
         };
 
-        let js_resp = JsResponse { inner, headers };
+        let js_resp = JsResponse { inner, headers, status_code: self.status_code };
         let res = oneshot.send(js_resp);
 
         if checked && res.is_err() {

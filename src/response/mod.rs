@@ -18,6 +18,7 @@ static INTERNAL_SERVER_ERROR: Bytes = Bytes::from_static(b"Internal Server Error
 
 pub struct JsResponse {
     pub inner: InnerResp,
+    pub status_code: Option<u16>,
     pub headers: Option<Vec<(Bytes, Bytes)>>,
 }
 
@@ -27,6 +28,7 @@ pub enum InnerResp {
     Raw(Bytes),
     Template(String, String, String),
     ServerError,
+    ServerErrorWithMessage(Bytes),
     EmptyString,
 }
 
@@ -47,6 +49,15 @@ fn render_internal_error_with_message(message: &'static [u8]) -> Response<Bytes>
     Response::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
         Bytes::from_static(message),
+    )
+}
+
+#[cold]
+#[inline(never)]
+fn render_internal_error_with_bytes(message: Bytes) -> Response<Bytes> {
+    Response::with_body(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        message,
     )
 }
 
@@ -78,6 +89,20 @@ fn apply_headers(
 }
 
 impl JsResponse {
+    #[cold]
+    #[inline(never)]
+    fn convert_to_status_code(code: u16) -> StatusCode {
+        StatusCode::from_u16(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+    }
+
+    #[inline(always)]
+    fn get_status_code(status: Option<u16>) -> StatusCode {
+        match status {
+            Some(code) => Self::convert_to_status_code(code),
+            None => StatusCode::OK,
+        }
+    }
+
     #[inline(always)]
     pub fn apply_to_response(self) -> Response<Bytes> {
         let message = match &self.inner {
@@ -86,23 +111,23 @@ impl JsResponse {
             Raw(_) => RAW_HEADER_VAL.clone(),
             Template(_, _, _) => HTML_HEADER_VAL.clone(),
             ServerError => return render_internal_error(),
+            ServerErrorWithMessage(message) => return render_internal_error_with_bytes(message.clone()),
         };
 
-        let mut rsp = match self.inner {
-            Text(message) | Json(message) | Raw(message) => {
-                Response::with_body(StatusCode::OK, message)
-            }
+        let bytes = match self.inner {
+            Text(message) | Json(message) | Raw(message) => message,
             Template(group, file, context) => {
                 let buffer = match store_in_bytes_buffer(&group, &file, &context) {
                     Ok(res) => res,
-                    Err(_) => return render_internal_error_with_message(b"Error rendering template"),
+                    Err(_) => return render_internal_error_with_message(b"Error rendering template")
                 };
-                Response::with_body(StatusCode::OK, buffer.freeze())
+                buffer.freeze()
             }
-            EmptyString => Response::with_body(StatusCode::OK, Bytes::new()),
+            EmptyString => Bytes::new(),
             _ => unreachable!(),
         };
 
+        let mut rsp = Response::with_body(Self::get_status_code(self.status_code), bytes);
         let hdrs = rsp.headers_mut();
 
         apply_headers(hdrs, message, self.headers);

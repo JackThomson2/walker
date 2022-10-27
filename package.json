@@ -46,6 +46,7 @@
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava -T 60s ./__test__/index.spec.mjs",
     "test:stress": "ava -T 60s ./__test__/stress.spec.mjs",
+    "test:saturate": "ava -T 600s ./__test__/saturation.spec.mjs",
     "version": "napi version"
   }
 }
