@@ -40,6 +40,7 @@ lazy_static! {
 
 #[cold]
 #[inline(never)]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 pub fn reset_thread_affinity() {
     let mut tracker = TRACKER.lock();
 
@@ -47,6 +48,9 @@ pub fn reset_thread_affinity() {
     tracker.max = affinity::get_core_num();
     tracker.curr_index = 0;
 }
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+pub fn reset_thread_affinity() {}
 
 #[cold]
 #[inline(never)]
