@@ -65,9 +65,17 @@ const registerRoutes = () => {
         res.sendStringifiedObject(JSON.stringify(object));
     });
 
+    Walker.get("/customHeader", (res) => {
+        res.addHeader("custom", "header");
+
+        res.sendText("Custom header added");
+    });
+
+
     Walker.get("/internalServerError", (res) => {
         res.sendInternalServerError();
     });
+    
 
     Walker.get("/errorWithMessage", (res) => {
         res.sendInternalServerErrorWithMessage("This is an error");

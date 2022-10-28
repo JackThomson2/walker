@@ -10,9 +10,9 @@ use crate::templates::store_in_bytes_buffer;
 static WALKER_SERVER: HeaderValue = HeaderValue::from_static("walker");
 
 static TEXT_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
-static JSON_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
-static RAW_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
-static HTML_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/plain; charset=UTF-8");
+static JSON_HEADER_VAL: HeaderValue = HeaderValue::from_static("application/json; charset=UTF-8");
+static RAW_HEADER_VAL: HeaderValue = HeaderValue::from_static("application/octet-stream; charset=UTF-8");
+static HTML_HEADER_VAL: HeaderValue = HeaderValue::from_static("text/html; charset=UTF-8");
 
 static INTERNAL_SERVER_ERROR: Bytes = Bytes::from_static(b"Internal Server Error");
 
@@ -67,8 +67,8 @@ fn apply_headers(
     content_header: HeaderValue,
     headers: Option<Vec<(Bytes, Bytes)>>,
 ) {
-    hdrs.insert(SERVER, content_header);
-    hdrs.insert(CONTENT_TYPE, WALKER_SERVER.clone());
+    hdrs.insert(SERVER, WALKER_SERVER.clone());
+    hdrs.insert(CONTENT_TYPE, content_header);
 
     if let Some(custom_headers) = headers {
         for (key_b, val_b) in custom_headers {
