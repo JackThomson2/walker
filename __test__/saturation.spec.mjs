@@ -1,5 +1,9 @@
 import test from 'ava'
-import fetch from 'node-fetch';
+import axios from 'axios';
+
+const Server = axios.create({
+    baseURL: 'http://0.0.0.0:8080/'
+  });
 
 import * as Walker from '../index.js'
 
@@ -28,19 +32,18 @@ test.serial.before(async (_) => {
 });
 
 
-// Hit the cpu endpoint 10_000 times to saturate the object pool
-test("Get /cpu 10_000 times", async t => {
+// Hit the cpu endpoint 5_000 times to saturate the object pool
+test("Get /cpu 5_000 times", async t => {
     const promises = [];
-    for (let i = 0; i < 10_000; i++) {
-        promises.push(fetch(`http://0.0.0.0:8080/cpu/${i}`));
+    for (let i = 0; i < 5_000; i++) {
+        promises.push(Server.get(`/cpu/${i}`));
     }
 
     const responses = await Promise.all(promises);
-    const texts = await Promise.all(responses.map((response) => response.text()));
 
-    t.is(texts.length, 10_000);
+    t.is(responses.length, 5_000);
     // check all the responses are correct
-    texts.forEach((text, index) => {
-        t.is(text, `Param: ${index}`);
+    responses.forEach((resp, index) => {
+        t.is(resp.data, `Param: ${index}`);
     });
 });
