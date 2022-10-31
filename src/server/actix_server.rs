@@ -12,7 +12,7 @@ use tokio::sync::oneshot;
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
     object_pool::{build_up_pool, get_stored_chunk, StoredPair},
-    router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
+    router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error, worker::{make_workers, WorkerSender},
 };
 
 use super::{
@@ -23,6 +23,7 @@ use super::{
 struct ActixHttpServer {
     _hdr_srv: HeaderValue,
     object_pool: Rc<UnsafeCell<Vec<StoredPair>>>,
+    sender: WorkerSender,
 }
 
 impl ActixHttpServer {
@@ -56,38 +57,45 @@ impl Service<Request> for ActixHttpServer {
     fn call(&self, mut req: Request) -> Self::Future {
         let vec_ref = self.object_pool.clone();
 
+        let sender = self.sender.clone();
+        let pair = (req.uri().to_string(), req.method().to_string());
+
         Box::pin(async move {
-            let result = match get_route(req.path(), req.method().clone()) {
-                Some(res) => res,
-                None => {
-                    return get_failed_message();
-                }
-            };
+            // let result = match get_route(req.path(), req.method().clone()) {
+            //     Some(res) => res,
+            //     None => {
+            //         return get_failed_message();
+            //     }
+            // };
 
-            let mut body = None;
+            // let mut body = None;
 
-            if req.method() == http::Method::POST {
-                body = match get_post_body(req.payload()).await {
-                    Ok(body) => Some(body),
-                    Err(_) => {
-                        return get_failed_message();
-                    }
-                };
-            }
+            // if req.method() == http::Method::POST {
+            //     body = match get_post_body(req.payload()).await {
+            //         Ok(body) => Some(body),
+            //         Err(_) => {
+            //             return get_failed_message();
+            //         }
+            //     };
+            // }
 
-            let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
-            let mut js_obj = match to_add_back.pop() {
-                Some(res) => res,
-                None => Self::backoff_get_object(to_add_back).await,
-            };
+            // let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
+            // let mut js_obj = match to_add_back.pop() {
+            //     Some(res) => res,
+            //     None => Self::backoff_get_object(to_add_back).await,
+            // };
+
+            // let (send, rec) = oneshot::channel();
+            // js_obj.0 .0.store_self_data(req, send, body);
+
+            // result.call(
+            //     js_obj.0 .1,
+            //     crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
+            // );
 
             let (send, rec) = oneshot::channel();
-            js_obj.0 .0.store_self_data(req, send, body);
 
-            result.call(
-                js_obj.0 .1,
-                crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
-            );
+            sender.send_async((pair, send)).await.unwrap();
 
             let result = match rec.await {
                 Ok(res) => Ok(res.apply_to_response()),
@@ -95,11 +103,11 @@ impl Service<Request> for ActixHttpServer {
             };
 
             // Saves a check check for length we can be sure that the vec is not full
-            if to_add_back.len() == to_add_back.capacity() {
-                unsafe { std::hint::unreachable_unchecked() }
-            }
+            // if to_add_back.len() == to_add_back.capacity() {
+            //     unsafe { std::hint::unreachable_unchecked() }
+            // }
 
-            to_add_back.push(js_obj);
+            // to_add_back.push(js_obj);
 
             result
         })
@@ -107,7 +115,7 @@ impl Service<Request> for ActixHttpServer {
 }
 
 #[derive(Clone)]
-struct AppFactory(usize);
+struct AppFactory(usize, WorkerSender);
 
 impl ServiceFactory<Request> for AppFactory {
     type Config = ();
@@ -122,22 +130,25 @@ impl ServiceFactory<Request> for AppFactory {
 
         let chunk_size = self.0;
 
+        let sender = self.1.clone();
+
         Box::pin(async move {
             Ok(ActixHttpServer {
                 _hdr_srv: HeaderValue::from_static("Walker"),
                 object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(chunk_size))),
+                sender,
             })
         })
     }
 }
 
-async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
+async fn create_sever(config: ServerConfig, sender: WorkerSender) -> std::io::Result<()> {
     let pool_size = config.pool_per_worker_size;
 
     let srv = Server::build()
         .backlog(config.backlog as u32)
         .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size)).tcp()
+            HttpService::build().finish(AppFactory(pool_size, sender.clone())).tcp()
         })?
         .workers(config.worker_threads)
         .run();
@@ -147,11 +158,11 @@ async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
     srv.await
 }
 
-fn run_server(config: ServerConfig) -> std::io::Result<()> {
+fn run_server(config: ServerConfig, sender: WorkerSender) -> std::io::Result<()> {
     // Lets set net reciever priority here
     try_pin_priority();
 
-    actix_rt::System::new().block_on(create_sever(config))
+    actix_rt::System::new().block_on(create_sever(config, sender))
 }
 
 #[cold]
@@ -159,7 +170,11 @@ pub fn start_server(config: ServerConfig, env: sys::napi_env) -> napi::Result<()
     if !try_own_start() {
         return Err(make_js_error("Server already started"));
     }
+
+    let (sender, reciever) = flume::bounded(10_000);
     
+    make_workers(reciever, 10);
+
     reset_thread_affinity();
     initialise_reader();
     unsafe { build_up_pool(env, config.get_pool_size())?; }
@@ -168,7 +183,7 @@ pub fn start_server(config: ServerConfig, env: sys::napi_env) -> napi::Result<()
     pin_js_thread();
 
     std::thread::spawn(move || {
-        if run_server(config).is_err() {
+        if run_server(config, sender).is_err() {
             eprintln!("Error starting server.");
         }
     });

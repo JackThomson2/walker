@@ -75,6 +75,7 @@ export function stop(): boolean
 export function loadNewTemplate(groupName: string, directory: string): void
 export function reloadGroup(groupName: string): void
 export function getThreadAffinity(): Array<number>
+export function registerQuickJsHandler(function: (...args: any[]) => any): void
 export class DbConnection {
   query(query: FastStr): object
   prepareStatement(query: string, count: number): Promise<PreparedStatement>

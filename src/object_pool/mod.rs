@@ -8,7 +8,6 @@ use crate::request::{helpers::make_js_error, RequestBlob};
 pub struct StoredPair(pub (Box<RequestBlob>, sys::napi_ref));
 
 unsafe impl Send for StoredPair {}
-unsafe impl Sync for StoredPair {}
 
 static POOL: Mutex<Vec<StoredPair>> = Mutex::new(vec![]);
 

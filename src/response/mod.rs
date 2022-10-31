@@ -34,6 +34,24 @@ pub enum InnerResp {
 
 use InnerResp::*;
 
+impl JsResponse {
+    pub fn simple_str(message: String) -> Self {
+        Self {
+            inner: Text(Bytes::from(message)),
+            status_code: None,
+            headers: None,
+        }
+    }
+
+    pub fn error() -> Self {
+        Self {
+            inner: ServerError,
+            status_code: None,
+            headers: None,
+        }
+    }
+}
+
 #[cold]
 #[inline(never)]
 fn render_internal_error() -> Response<Bytes> {
