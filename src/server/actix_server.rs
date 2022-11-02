@@ -147,6 +147,23 @@ async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
     srv.await
 }
 
+async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
+    let pool_size = config.pool_per_worker_size;
+
+    let srv = Server::build()
+        .backlog(config.backlog as u32)
+        .bind("walker_server_h1", &config.url, move || {
+            HttpService::build().finish(AppFactory(pool_size)).tcp()
+        })?
+        .workers(config.worker_threads)
+        .run();
+
+    attach_server_handle(srv.handle());
+
+    srv.await
+}
+
+
 fn run_server(config: ServerConfig) -> std::io::Result<()> {
     // Lets set net reciever priority here
     try_pin_priority();

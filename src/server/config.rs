@@ -12,6 +12,9 @@ pub struct ServerConfig {
     pub pool_per_worker_size: usize,
     pub backlog: usize,
     pub debug: bool,
+    pub tls: bool,
+    pub key_location: Option<String>,
+    pub cert_location: Option<String>,
 }
 
 #[cold]
@@ -30,6 +33,9 @@ impl ServerConfig {
             pool_per_worker_size: 10_000,
             backlog: 1024,
             debug: false,
+            tls: false,
+            key_location: None,
+            cert_location: None,
         }
     }
 
@@ -59,13 +65,30 @@ impl ServerConfig {
                 None => Ok(fallback),
             }
         };
+
+        let mut tls = false;
+        let mut key_location = None;
+        let mut cert_location = None;
         
+        if get_bool_with_default("tls", false)? {
+            tls = true;
+            key_location = config.get("key_location").cloned();
+            cert_location = config.get("cert_location").cloned();
+
+            if key_location.is_none() || cert_location.is_none() {
+                return Err(make_js_error("We need both the key and cert location for TLS"));
+            }
+        }
+
         Ok(Self {
             url,
             worker_threads: get_number_with_deault("worker_threads", guess_optimal_worker_count())?,
             pool_per_worker_size: get_number_with_deault("pool_per_worker_size", 10_000)?,
             backlog: get_number_with_deault("backlog", 1024)?,
             debug: get_bool_with_default("debug", false)?,
+            tls,
+            key_location,
+            cert_location,
         })
     }
 
