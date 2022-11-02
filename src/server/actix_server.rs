@@ -149,11 +149,12 @@ async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
 
 async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
     let pool_size = config.pool_per_worker_size;
+    let certs = super::tls::load_tls_certs(&config).unwrap();
 
     let srv = Server::build()
         .backlog(config.backlog as u32)
         .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size)).tcp()
+            HttpService::build().finish(AppFactory(pool_size)).rustls(certs.clone())
         })?
         .workers(config.worker_threads)
         .run();
@@ -168,7 +169,11 @@ fn run_server(config: ServerConfig) -> std::io::Result<()> {
     // Lets set net reciever priority here
     try_pin_priority();
 
-    actix_rt::System::new().block_on(create_sever(config))
+    if config.tls {
+        actix_rt::System::new().block_on(create_tls_server(config))
+    } else {
+        actix_rt::System::new().block_on(create_sever(config))
+    }
 }
 
 #[cold]

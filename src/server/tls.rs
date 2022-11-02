@@ -7,15 +7,15 @@ use napi::Result;
 
 use crate::request::helpers::make_js_error;
 
-pub fn load_tls_certs(config: &super::config::ServerConfig) -> Result<ServerConfig> {
+pub fn load_tls_certs(user_config: &super::config::ServerConfig) -> Result<ServerConfig> {
         // init server config builder with safe defaults
     let config = ServerConfig::builder()
         .with_safe_defaults()
         .with_no_client_auth();
 
     // load TLS key/cert files
-    let cert_file = &mut BufReader::new(File::open(config).map_err(|_| make_js_error("Error loading cert file"))?);
-    let key_file = &mut BufReader::new(File::open("key.pem").map_err(|_| make_js_error("Error loading key file"))?);
+    let cert_file = &mut BufReader::new(File::open(user_config.cert_location.as_ref().unwrap()).map_err(|_| make_js_error("Error loading cert file"))?);
+    let key_file = &mut BufReader::new(File::open(user_config.key_location.as_ref().unwrap()).map_err(|_| make_js_error("Error loading key file"))?);
 
     // convert files to key/cert objects
     let cert_chain = certs(cert_file)
