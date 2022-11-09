@@ -1,6 +1,5 @@
 use napi::bindgen_prelude::*;
 
-use crate::napi::halfbrown::HalfBrown;
 use super::{actix_server::start_server, config::ServerConfig, shutdown::stop_server};
 
 #[cold]
@@ -18,7 +17,7 @@ pub fn start(env: Env, address: String) -> Result<()> {
 /// This allows you to configure the number of workers
 pub fn start_with_worker_count(env: Env, address: String, workers: u32) -> Result<()> {
     let mut config = ServerConfig::default_with_url(address);
-    config.worker_threads = workers as usize;
+    config.worker_threads = workers;
 
     start_server(config, env.raw())
 }
@@ -38,9 +37,7 @@ pub fn start_with_worker_count(env: Env, address: String, workers: u32) -> Resul
 /// pool_per_worker_size: The size of the pool per worker
 /// 
 /// debug: Whether to enable debug mode
-pub fn start_with_config(env: Env, config: HalfBrown<String, String>) -> Result<()> {
-    let config = ServerConfig::from_config_blob(config.0)?;
-
+pub fn start_with_config(env: Env, config: ServerConfig) -> Result<()> {
     start_server(config, env.raw())
 }
 

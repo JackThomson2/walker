@@ -236,7 +236,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { DbConnection, connectDb, PreparedStatement, Methods, newRoute, get, post, put, patch, RequestBlob, start, startWithWorkerCount, startWithConfig, stop, loadNewTemplate, reloadGroup, getThreadAffinity } = nativeBinding
+const { DbConnection, connectDb, PreparedStatement, Methods, newRoute, get, post, put, patch, RequestBlob, start, startWithWorkerCount, startWithConfig, stop, loadNewTemplate, reloadGroup, getWorkerId, initialisePoolForWorker, getThreadAffinity } = nativeBinding
 
 module.exports.DbConnection = DbConnection
 module.exports.connectDb = connectDb
@@ -254,4 +254,6 @@ module.exports.startWithConfig = startWithConfig
 module.exports.stop = stop
 module.exports.loadNewTemplate = loadNewTemplate
 module.exports.reloadGroup = reloadGroup
+module.exports.getWorkerId = getWorkerId
+module.exports.initialisePoolForWorker = initialisePoolForWorker
 module.exports.getThreadAffinity = getThreadAffinity

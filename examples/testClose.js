@@ -2,12 +2,12 @@ const Walker = require('..');
 
 const config = {
     url: "0.0.0.0:8081",
-    worker_threads: "1",
-    pool_per_worker_size: "100"
+    worker_threads: 1,
+    pool_per_worker_size: 100
 }
 
 Walker.get("/", (res) => {
-    res.sendText("Hello world");
+    res.sendText('Hello world');
 });
 
 Walker.startWithConfig(config);

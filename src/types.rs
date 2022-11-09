@@ -1,3 +1,3 @@
-use crate::napi::tsfn::ThreadsafeFunction;
+use crate::router::route_node::RouteNode;
 
-pub type CallBackFunction = ThreadsafeFunction;
+pub type CallBackFunction = RouteNode;

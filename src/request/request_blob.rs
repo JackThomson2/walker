@@ -7,7 +7,6 @@ use napi::Result;
 use super::helpers::make_js_error;
 use crate::response::{JsResponse, InnerResp};
 
-
 #[napi]
 pub struct RequestBlob {
     pub(crate) data: MaybeUninit<Request>,
@@ -77,7 +76,7 @@ impl RequestBlob {
         let res = oneshot.send(js_resp);
 
         if checked && res.is_err() {
-            eprintln!("Error sending response, the reciever may have dropped.");
+            return Err(make_js_error("Error with sending the response."))
         }
 
         Ok(())

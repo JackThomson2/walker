@@ -66,14 +66,30 @@ export function startWithWorkerCount(address: string, workers: number): void
  *
  * debug: Whether to enable debug mode
  */
-export function startWithConfig(config: HalfBrown): void
+export function startWithConfig(config: ServerConfig): void
 /**
  * Attempts to stop the server, returns if it woreked
  * Experimental at the moment
  */
 export function stop(): boolean
+/**
+ * This allows you to configure the server with more
+ * granular control, some options are required.
+ */
+export interface ServerConfig {
+  url: string
+  workerThreads: number
+  poolPerWorkerSize: number
+  backlog: number
+  debug: boolean
+  tls: boolean
+  keyLocation?: string
+  certLocation?: string
+}
 export function loadNewTemplate(groupName: string, directory: string): void
 export function reloadGroup(groupName: string): void
+export function getWorkerId(): number
+export function initialisePoolForWorker(poolSize: number): void
 export function getThreadAffinity(): Array<number>
 export class DbConnection {
   query(query: FastStr): object

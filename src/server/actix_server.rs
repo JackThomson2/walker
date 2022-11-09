@@ -10,7 +10,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
-    object_pool::{build_up_pool, get_stored_chunk, StoredPair},
+    object_pool::{build_up_pool, get_stored_chunk, StoredPair, get_pair_for_thread, replace_for_thread},
     router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
 };
 
@@ -55,7 +55,7 @@ impl Service<Request> for ActixHttpServer {
         let vec_ref = self.object_pool.clone();
 
         Box::pin(async move {
-            let result = match get_route(req.path(), req.method().clone()) {
+            let router = match get_route(req.path(), req.method().clone()) {
                 Some(res) => res,
                 None => {
                     return get_failed_message();
@@ -73,16 +73,19 @@ impl Service<Request> for ActixHttpServer {
                 };
             }
 
-            let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
-            let mut js_obj = match to_add_back.pop() {
+            let mut js_obj = match get_pair_for_thread(router.threads_id) {
                 Some(res) => res,
-                None => Self::backoff_get_object(to_add_back).await,
+                None => {
+                    println!("Thread not been initialized!!");
+                    return get_failed_message();
+                }
             };
 
             let (send, rec) = oneshot::channel();
+            
             js_obj.0 .0.store_self_data(req, send, body);
 
-            result.call(
+            router.function.call(
                 js_obj.0 .1,
                 crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
             );
@@ -92,12 +95,7 @@ impl Service<Request> for ActixHttpServer {
                 Err(_) => get_failed_message(),
             };
 
-            // Saves a check check for length we can be sure that the vec is not full
-            if to_add_back.len() == to_add_back.capacity() {
-                unsafe { std::hint::unreachable_unchecked() }
-            }
-
-            to_add_back.push(js_obj);
+            replace_for_thread(router.threads_id, js_obj);
 
             result
         })
@@ -134,9 +132,9 @@ async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
     let srv = Server::build()
         .backlog(config.backlog as u32)
         .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size)).tcp()
+            HttpService::build().finish(AppFactory(pool_size as usize)).tcp()
         })?
-        .workers(config.worker_threads)
+        .workers(config.worker_threads as usize)
         .run();
 
     attach_server_handle(srv.handle());
@@ -151,9 +149,9 @@ async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
     let srv = Server::build()
         .backlog(config.backlog as u32)
         .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size)).rustls(certs.clone())
+            HttpService::build().finish(AppFactory(pool_size as usize)).rustls(certs.clone())
         })?
-        .workers(config.worker_threads)
+        .workers(config.worker_threads as usize)
         .run();
 
     attach_server_handle(srv.handle());
