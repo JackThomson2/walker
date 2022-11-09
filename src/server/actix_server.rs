@@ -5,7 +5,6 @@ use actix_server::Server;
 use actix_service::{Service, ServiceFactory};
 use bytes::Bytes;
 use futures::future::LocalBoxFuture;
-use http::HeaderValue;
 use napi::sys;
 use tokio::sync::oneshot;
 
@@ -21,7 +20,6 @@ use super::{
 };
 
 struct ActixHttpServer {
-    _hdr_srv: HeaderValue,
     object_pool: Rc<UnsafeCell<Vec<StoredPair>>>,
 }
 
@@ -124,7 +122,6 @@ impl ServiceFactory<Request> for AppFactory {
 
         Box::pin(async move {
             Ok(ActixHttpServer {
-                _hdr_srv: HeaderValue::from_static("Walker"),
                 object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(chunk_size))),
             })
         })

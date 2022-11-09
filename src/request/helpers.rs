@@ -8,15 +8,6 @@ use crate::napi::halfbrown::HalfBrown;
 
 #[cold]
 #[inline(never)]
-pub fn make_generic_error() -> Error {
-    Error::new(
-        Status::GenericFailure,
-        "Unable to send response".to_string(),
-    )
-}
-
-#[cold]
-#[inline(never)]
 pub fn make_js_error(reason: &'static str) -> Error {
     Error::new(Status::GenericFailure, reason.to_string())
 }
