@@ -7,7 +7,6 @@ pub struct RouteNode {
 }
 
 impl RouteNode {
-
     pub fn new_with_fn(function: ThreadsafeFunction) -> Self {
         let thread_id = crate::thread::get_id();
 

@@ -25,12 +25,34 @@ pub unsafe fn build_pool_for_id(env: sys::napi_env, pool_size: usize, thread_id:
     let mut pool_list = WORKER_POOL.write();
 
     if pool_list.len() >= thread_id {
+        println!("Resizing the pool");
         pool_list.resize_with(thread_id + 1, Default::default);
     }
+    println!("Getting id {} from length {}", thread_id, pool_list.len());
 
     let found = pool_list.get_mut(thread_id).ok_or_else(|| make_js_error("Error building pool"))?;
     let mut pool = found.lock();
     build_pool_into_vec(env, pool_size, &mut pool)
+}
+
+pub fn get_pool_for_threads(count: usize) -> Result<Vec<Vec<StoredPair>>> {
+    let locked = WORKER_POOL.read();
+    let mut result = Vec::with_capacity(locked.len());
+
+    for thread in locked.iter() {
+        let mut obj_list = thread.lock();
+        if obj_list.len() < count {
+            return Err(make_js_error("We don't have enough objects provisioned."))
+        }
+
+        let split_point = obj_list.len() - count;
+        let split = obj_list.split_off(split_point);
+
+        println!("Build lookup of length {}", split.len());
+        result.push(split);
+    } 
+
+    Ok(result)
 }
 
 #[inline(always)]
@@ -65,7 +87,7 @@ unsafe fn get_obj_constructor() -> Result<sys::napi_ref> {
 
 unsafe fn build_pool_into_vec(env: sys::napi_env, pool_size: usize, pool: &mut Vec<StoredPair>) -> Result<()> {
     pool.reserve(pool_size);
-    
+
     let ctor_ref = get_obj_constructor()?;
     let mut ctor = std::ptr::null_mut();
     if sys::napi_get_reference_value(env, ctor_ref, &mut ctor) != napi::sys::Status::napi_ok {
@@ -76,9 +98,9 @@ unsafe fn build_pool_into_vec(env: sys::napi_env, pool_size: usize, pool: &mut V
         let mut result = std::ptr::null_mut();
         if sys::napi_new_instance(env, ctor, 0, std::ptr::null_mut(), &mut result)
             != sys::Status::napi_ok
-        {
-            return Err(make_js_error("Error creating a new instance."));
-        }
+            {
+                return Err(make_js_error("Error creating a new instance."));
+            }
 
         let mut reffering = std::ptr::null_mut();
         if sys::napi_create_reference(env, result, 1, &mut reffering) != sys::Status::napi_ok {
@@ -95,7 +117,7 @@ unsafe fn build_pool_into_vec(env: sys::napi_env, pool_size: usize, pool: &mut V
             None,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
-        );
+            );
 
         let recovered = Box::from_raw(raw_obj);
         pool.push(StoredPair((recovered, reffering)));

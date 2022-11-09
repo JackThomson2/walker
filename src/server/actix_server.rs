@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, convert::Infallible, rc::Rc};
+use std::{cell::UnsafeCell, convert::Infallible, rc::Rc, sync::atomic::{AtomicUsize, Ordering}};
 
 use actix_http::{HttpService, Request, Response};
 use actix_server::Server;
@@ -10,7 +10,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
-    object_pool::{build_up_pool, get_stored_chunk, StoredPair, get_pair_for_thread, replace_for_thread},
+    object_pool::{build_up_pool, StoredPair, get_pair_for_thread, replace_for_thread, get_pool_for_threads},
     router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
 };
 
@@ -20,13 +20,14 @@ use super::{
 };
 
 struct ActixHttpServer {
-    object_pool: Rc<UnsafeCell<Vec<StoredPair>>>,
+    object_pool: Rc<UnsafeCell<Vec<Vec<StoredPair>>>>,
+    idx: UnsafeCell<usize>
 }
 
 impl ActixHttpServer {
     #[allow(clippy::mut_from_ref)]
     #[inline(always)]
-    fn get_mut_from_unsafe(unsafe_cell: &UnsafeCell<Vec<StoredPair>>) -> &mut Vec<StoredPair> {
+    fn get_mut_from_unsafe(unsafe_cell: &UnsafeCell<Vec<Vec<StoredPair>>>) -> &mut Vec<Vec<StoredPair>> {
         unsafe { &mut *unsafe_cell.get() }
     }
 
@@ -34,12 +35,23 @@ impl ActixHttpServer {
     #[cold]
     async fn backoff_get_object(items: &mut Vec<StoredPair>) -> StoredPair {
         loop {
+            println!("Backing off??");
             tokio::task::yield_now().await;
 
             if let Some(retrieved) = items.pop() {
                 return retrieved;
             }
         }
+    }
+
+    #[inline(always)]
+    fn get_next_idx(&self) -> usize {
+        let position = unsafe { &mut *self.idx.get() };
+        let val = *position;
+
+        *position += 1;
+
+        val
     }
 }
 
@@ -53,6 +65,7 @@ impl Service<Request> for ActixHttpServer {
     #[inline(always)]
     fn call(&self, mut req: Request) -> Self::Future {
         let vec_ref = self.object_pool.clone();
+        let offset = self.get_next_idx();
 
         Box::pin(async move {
             let router = match get_route(req.path(), req.method().clone()) {
@@ -61,6 +74,8 @@ impl Service<Request> for ActixHttpServer {
                     return get_failed_message();
                 }
             };
+
+            let router = unsafe { router.get_unchecked(offset % router.len()) };
 
             let mut body = None;
 
@@ -73,11 +88,14 @@ impl Service<Request> for ActixHttpServer {
                 };
             }
 
-            let mut js_obj = match get_pair_for_thread(router.threads_id) {
-                Some(res) => res,
-                None => {
-                    println!("Thread not been initialized!!");
-                    return get_failed_message();
+            let object_reference = Self::get_mut_from_unsafe(&vec_ref);
+
+            let mut js_obj = unsafe {
+                let reference = object_reference.get_unchecked_mut(router.threads_id);
+
+                match reference.pop() {
+                    Some(res) => res,
+                    None => Self::backoff_get_object(reference).await,
                 }
             };
 
@@ -95,7 +113,10 @@ impl Service<Request> for ActixHttpServer {
                 Err(_) => get_failed_message(),
             };
 
-            replace_for_thread(router.threads_id, js_obj);
+            unsafe {
+                let reference = object_reference.get_unchecked_mut(router.threads_id);
+                reference.push(js_obj);
+            }
 
             result
         })
@@ -104,6 +125,8 @@ impl Service<Request> for ActixHttpServer {
 
 #[derive(Clone)]
 struct AppFactory(usize);
+
+static IDX_OFFSETTER: AtomicUsize = AtomicUsize::new(0);
 
 impl ServiceFactory<Request> for AppFactory {
     type Config = ();
@@ -117,10 +140,12 @@ impl ServiceFactory<Request> for AppFactory {
         try_pin_priority();
 
         let chunk_size = self.0;
+        let object_pool = Rc::new(UnsafeCell::new(get_pool_for_threads(chunk_size).unwrap()));
 
         Box::pin(async move {
             Ok(ActixHttpServer {
-                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(chunk_size))),
+                object_pool,
+                idx: UnsafeCell::new(IDX_OFFSETTER.fetch_add(1, Ordering::SeqCst)),
             })
         })
     }
