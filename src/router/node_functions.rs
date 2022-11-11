@@ -46,9 +46,6 @@ impl Methods {
 /// needed to get the information from the request
 pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result<()> {
   let tsfn = ThreadsafeFunction::create(callback.0.env, callback.0.value, 1024)?;
-
-  println!("Thread {} is adding a route...", crate::thread::get_id());
-
   add_new_route(&route, method, super::RouteNode::new_with_fn(tsfn))
 }
 

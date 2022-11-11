@@ -10,7 +10,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
-    object_pool::{build_up_pool, StoredPair, get_pair_for_thread, replace_for_thread, get_pool_for_threads},
+    object_pool::{build_up_pool, StoredPair, get_pool_for_threads},
     router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
 };
 
@@ -35,7 +35,6 @@ impl ActixHttpServer {
     #[cold]
     async fn backoff_get_object(items: &mut Vec<StoredPair>) -> StoredPair {
         loop {
-            println!("Backing off??");
             tokio::task::yield_now().await;
 
             if let Some(retrieved) = items.pop() {
@@ -152,14 +151,14 @@ impl ServiceFactory<Request> for AppFactory {
 }
 
 async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
-    let pool_size = config.pool_per_worker_size;
+    let pool_size = config.get_pool_per_worker();
 
     let srv = Server::build()
-        .backlog(config.backlog as u32)
+        .backlog(config.get_backlog_size())
         .bind("walker_server_h1", &config.url, move || {
             HttpService::build().finish(AppFactory(pool_size as usize)).tcp()
         })?
-        .workers(config.worker_threads as usize)
+        .workers(config.get_worker_thread() as usize)
         .run();
 
     attach_server_handle(srv.handle());
@@ -168,15 +167,15 @@ async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
 }
 
 async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
-    let pool_size = config.pool_per_worker_size;
+    let pool_size = config.get_pool_per_worker();
     let certs = super::tls::load_tls_certs(&config).unwrap();
 
     let srv = Server::build()
-        .backlog(config.backlog as u32)
+        .backlog(config.get_backlog_size())
         .bind("walker_server_h1", &config.url, move || {
             HttpService::build().finish(AppFactory(pool_size as usize)).rustls(certs.clone())
         })?
-        .workers(config.worker_threads as usize)
+        .workers(config.get_worker_thread() as usize)
         .run();
 
     attach_server_handle(srv.handle());
@@ -189,7 +188,7 @@ fn run_server(config: ServerConfig) -> std::io::Result<()> {
     // Lets set net reciever priority here
     try_pin_priority();
 
-    if config.tls {
+    if config.get_tls() {
         actix_rt::System::new().block_on(create_tls_server(config))
     } else {
         actix_rt::System::new().block_on(create_sever(config))

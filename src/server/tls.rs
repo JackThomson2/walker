@@ -34,7 +34,5 @@ pub fn load_tls_certs(user_config: &super::config::ServerConfig) -> Result<Serve
         return Err(make_js_error("No keys found"))
     }
 
-    let res = config.with_single_cert(cert_chain, keys.remove(0)).map_err(|_| make_js_error("Error loading files"));
-
-    res
+    config.with_single_cert(cert_chain, keys.remove(0)).map_err(|_| make_js_error("Error loading files"))
 }

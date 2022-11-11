@@ -10,28 +10,22 @@ pub struct StoredPair(pub (Box<RequestBlob>, sys::napi_ref));
 unsafe impl Send for StoredPair {}
 unsafe impl Sync for StoredPair {}
 
-static POOL: Mutex<Vec<StoredPair>> = Mutex::new(vec![]);
-
 static WORKER_POOL: RwLock<Vec<Mutex<Vec<StoredPair>>>> = RwLock::new(vec![]);
 
-pub fn get_stored_chunk(count: usize) -> Vec<StoredPair> {
-    let mut locked = POOL.lock();
-    let split_point = locked.len() - count;
-
-    locked.split_off(split_point)
-}
-
-pub unsafe fn build_pool_for_id(env: sys::napi_env, pool_size: usize, thread_id: usize) -> Result<()> {
+pub unsafe fn build_pool_for_id(env: sys::napi_env, pool_size: usize, thread_id: usize, build_if_present: bool) -> Result<()> {
     let mut pool_list = WORKER_POOL.write();
 
     if pool_list.len() >= thread_id {
-        println!("Resizing the pool");
         pool_list.resize_with(thread_id + 1, Default::default);
     }
-    println!("Getting id {} from length {}", thread_id, pool_list.len());
 
     let found = pool_list.get_mut(thread_id).ok_or_else(|| make_js_error("Error building pool"))?;
     let mut pool = found.lock();
+
+    if !build_if_present && !pool.is_empty() {
+        return Ok(())
+    }
+
     build_pool_into_vec(env, pool_size, &mut pool)
 }
 
@@ -42,37 +36,17 @@ pub fn get_pool_for_threads(count: usize) -> Result<Vec<Vec<StoredPair>>> {
     for thread in locked.iter() {
         let mut obj_list = thread.lock();
         if obj_list.len() < count {
+            println!("The object length is {} and count is {}", obj_list.len(), count);
             return Err(make_js_error("We don't have enough objects provisioned."))
         }
 
         let split_point = obj_list.len() - count;
         let split = obj_list.split_off(split_point);
 
-        println!("Build lookup of length {}", split.len());
         result.push(split);
     } 
 
     Ok(result)
-}
-
-#[inline(always)]
-pub fn get_pair_for_thread(thread_id: usize) -> Option<StoredPair> {
-    let reader = WORKER_POOL.read();
-    let threads_pool = reader.get(thread_id)?;
-    let mut locked = threads_pool.lock();
-
-    locked.pop()
-}
-
-#[inline(always)]
-pub fn replace_for_thread(thread_id: usize, pair: StoredPair) -> Option<()> {
-    let reader = WORKER_POOL.read();
-    let threads_pool = reader.get(thread_id)?;
-    let mut locked = threads_pool.lock();
-
-    locked.push(pair);
-
-    Some(())
 }
 
 unsafe fn get_obj_constructor() -> Result<sys::napi_ref> {
@@ -127,8 +101,8 @@ unsafe fn build_pool_into_vec(env: sys::napi_env, pool_size: usize, pool: &mut V
 }
 
 pub unsafe fn build_up_pool(env: sys::napi_env, pool_size: usize) -> Result<()> {
-    let mut locked_pool = POOL.lock();
-    build_pool_into_vec(env, pool_size, &mut locked_pool)
+    let thread_id = crate::thread::get_id(); 
+    build_pool_for_id(env, pool_size, thread_id as usize, false)
 }
 
 

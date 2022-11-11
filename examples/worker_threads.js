@@ -9,30 +9,28 @@ const Walker = require('..');
 const response = "Hello World!"
 
 if (isMainThread) {
-    setEnvironmentData('Hello', 'World!');
-    const result = Walker.getWorkerId();
 
-    Walker.initialisePoolForWorker(200_000);
-    console.log(`Result is ${result}`);
-
-    for (let i = 0; i < 10; i++) {
-        const worker = new Worker(__filename);
+    for (let i = 0; i < 6; i++) {
+       // const worker = new Worker(__filename);
     }
 
-    Walker.get(`/${result}`, (res) => {
-        res.sendText(`Hello from main thread our id is ${result}`);
-    })
+    Walker.get(`/key`, (res) => {
+        let i = 0; 
 
-    Walker.get(`/`, (res) => {
-        res.sendTextUnchecked(response);
+        for (i; i < 1_000_000; i++) {
+            
+        }
+
+        res.sendTextUnchecked(`Result ${i}`)
     })
+    
 
     setTimeout(() => {
         console.log('Starting server...')
         const config = {
             url: "0.0.0.0:8081",
-            workerThreads: 12,
-            poolPerWorkerSize: 10000,
+            workerThreads: 6,
+            poolPerWorkerSize: 200_000,
             backlog: 10000,
             debug: false,
             tls: false,
@@ -40,16 +38,18 @@ if (isMainThread) {
         Walker.startWithConfig(config);
     }, 5000);
 } else {
-    let result = Walker.getWorkerId();
-    console.log(`Result is ${result}`);
-
-    Walker.get(`/key`, (res) => {
-        res.sendText(`Hello from worker thread our id is ${result}`);
-    })
-
     Walker.get(`/`, (res) => {
         res.sendTextUnchecked(response);
     })
 
-    Walker.initialisePoolForWorker(200_000);
+    Walker.get(`/key`, (res) => {
+        let i = 0; 
+
+        for (; i < 1_000_000; i++) {
+            
+        }
+
+        res.sendTextUnchecked(`Result ${i}`)
+    })
+    Walker.registerThreadsPool(200_000);
 }

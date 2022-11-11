@@ -9,9 +9,11 @@ import * as Walker from '../index.js'
 
 const config = {
     url: "0.0.0.0:8080",
-    worker_threads: "1",
-    backlog: "1000000",
-    pool_per_worker_size: "1"
+    workerThreads: 1,
+    backlog: 1000000,
+    poolPerWorkerSize: 1,
+    debug: false,
+    tls: false,
 }
 
 test.serial.before(async (_) => {
