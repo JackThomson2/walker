@@ -115,7 +115,7 @@ Walker.get("/template.html", (res) => {
         my_var: `We have 10 Page visitors ${++counter}`
     };
 
-     res.sendTemplateResp('root', 'users/profile.html', JSON.stringify(data));
+    res.sendTemplateResp('root', 'users/profile.html', JSON.stringify(data));
 });
 
 Walker.get("/counter", (res) => {
@@ -266,4 +266,13 @@ Walker.post("/post", (res) => {
     res.sendText(`We got this as the body: ${body.toString('utf8')}`);
 });
 
-Walker.startWithWorkerCount("0.0.0.0:8081", 12)
+const config = {
+    url: "0.0.0.0:8081",
+    workerThreads: 6,
+    poolPerWorkerSize: 200_000,
+    backlog: 10000,
+    debug: false,
+    tls: false,
+}
+
+Walker.startWithConfig(config)

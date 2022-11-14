@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bytes::{BytesMut, buf::Writer, BufMut};
+use ntex::util::{BytesMut, Buf, BufMut};
 use lazy_static::lazy_static;
 use napi::Result;
 use parking_lot::RwLock;
@@ -43,14 +43,14 @@ pub(crate) fn render_value_to_writer(
     group_name: &str,
     file_name: &str,
     data: Value,
-    writer: &mut Writer<BytesMut>,
+    writer: &mut BytesMut,
 ) -> Result<()> {
     let reader = TEMPLATES.read();
     let found_template = reader.get(group_name).ok_or_else(|| make_js_error("Error finding the template file."))?;
     let context = &Context::from_value(data).map_err(|_| make_js_error("Error reading data value."))?;
 
     found_template
-        .render_to(file_name, context, writer)
+        .render_to(file_name, context, writer.writer())
         .map_err(|_| make_js_error("Error rendering the text"))
 }
 
@@ -59,7 +59,7 @@ pub(crate) fn render_string_to_writer(
     group_name: &str,
     file_name: &str,
     data: &str,
-    writer: &mut Writer<BytesMut>,
+    writer: &mut BytesMut,
 ) -> Result<()> {
     let parsed: Value = serde_json::from_str(data).map_err(|_| make_js_error("Error parsing json data."))?;
     render_value_to_writer(group_name, file_name, parsed, writer)
@@ -71,8 +71,7 @@ pub(crate) fn store_in_bytes_buffer(
     file_name: &str,
     data: &str,
 ) -> Result<BytesMut> {
-    let buffer = BytesMut::with_capacity(1024);
-    let mut writer = buffer.writer();
-    render_string_to_writer(group_name, file_name, data, &mut writer)?;
-    Ok(writer.into_inner())
+    let mut buffer = BytesMut::with_capacity(1024);
+    render_string_to_writer(group_name, file_name, data, &mut buffer)?;
+    Ok(buffer)
 }

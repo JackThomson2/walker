@@ -1,17 +1,16 @@
-use std::convert::Infallible;
-
-use actix_http::{Response, Payload};
-use bytes::{Bytes, BytesMut};
+use ntex::web::{HttpResponse, Error};
+use ntex::http::{Response, Payload};
+use ntex::util::{Bytes, BytesMut};
 use futures::StreamExt;
 
 const MAX_SIZE: usize = 262_144; // max payload size is 256k
 
 #[cold]
 #[inline(never)]
-pub fn get_failed_message() -> Result<Response<Bytes>, Infallible> {
-    Ok(Response::with_body(
+pub fn get_failed_message() -> Result<Response, Error> {
+    Ok(HttpResponse::with_body(
         http::StatusCode::NOT_FOUND,
-        Bytes::new(),
+        Bytes::new().into(),
     ))
 }
 

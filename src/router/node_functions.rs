@@ -1,4 +1,4 @@
-use actix_http::Method;
+use ntex::http::Method;
 use napi::bindgen_prelude::*;
 
 use crate::{router::store::add_new_route, napi::tsfn::ThreadsafeFunction};

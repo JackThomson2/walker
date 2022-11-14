@@ -1,6 +1,6 @@
 use std::ptr;
 
-use bytes::Bytes;
+use ntex::util::Bytes;
 use napi::{
     bindgen_prelude::FromNapiValue,
     check_status,
@@ -8,7 +8,7 @@ use napi::{
     Result, TypedArrayType, Error, Status,
 };
 
-pub struct JsBytes(pub bytes::Bytes);
+pub struct JsBytes(pub Bytes);
 
 impl FromNapiValue for JsBytes {
     #[inline(always)]

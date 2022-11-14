@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
-use actix_http::Request;
-use bytes::Bytes;
+use ntex::http::Request;
+use ntex::util::Bytes;
 use tokio::sync::oneshot::Sender;
 use napi::Result;
 

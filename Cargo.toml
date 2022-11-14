@@ -14,12 +14,8 @@ bytes = "1.2.1"
 serde_json = "1.0.85"
 lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
-actix-http = { version = "3.2", features = ["http2", "rustls"]}
-actix-service = "2.0.2"
 futures = "0.3.24"
 http = "0.2.8"
-actix-rt = "2.7.0"
-actix-server = "2.1.1"
 tera = "1.17.1"
 parking_lot = "0.12.1"
 simdutf8 = "0.1.4"
@@ -29,6 +25,8 @@ num_cpus = "1.13.1"
 extreme = "666.666.666666"
 rustls = "0.20.7"
 rustls-pemfile = "1.0.1"
+kanal = "0.1.0-pre7"
+ntex = { version = "0.5.29", features = ["tokio"] }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 mimalloc-rust = { version = "0.2" }

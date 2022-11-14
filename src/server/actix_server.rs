@@ -1,9 +1,12 @@
-use std::{cell::UnsafeCell, convert::Infallible, rc::Rc, sync::atomic::{AtomicUsize, Ordering}};
+use std::{cell::UnsafeCell, rc::Rc, sync::atomic::{AtomicUsize, Ordering}};
+use std::{task::Context, task::Poll};
 
-use actix_http::{HttpService, Request, Response};
-use actix_server::Server;
-use actix_service::{Service, ServiceFactory};
-use bytes::Bytes;
+use ntex::http::{HttpService, Request, Response};
+use ntex::web::Error;
+use ntex::server::Server;
+use ntex::service::{Service, ServiceFactory};
+use ntex::util::PoolId;
+
 use futures::future::LocalBoxFuture;
 use napi::sys;
 use tokio::sync::oneshot;
@@ -16,7 +19,7 @@ use crate::{
 
 use super::{
     config::ServerConfig,
-    helpers::{get_failed_message, get_post_body}, shutdown::{attach_server_handle, try_own_start},
+    helpers::{get_failed_message, get_post_body}, 
 };
 
 struct ActixHttpServer {
@@ -55,11 +58,14 @@ impl ActixHttpServer {
 }
 
 impl Service<Request> for ActixHttpServer {
-    type Response = Response<Bytes>;
-    type Error = Infallible;
+    type Response = Response;
+    type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    actix_service::always_ready!();
+    #[inline]
+    fn poll_ready(&self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
 
     #[inline(always)]
     fn call(&self, mut req: Request) -> Self::Future {
@@ -128,9 +134,8 @@ struct AppFactory(usize);
 static IDX_OFFSETTER: AtomicUsize = AtomicUsize::new(0);
 
 impl ServiceFactory<Request> for AppFactory {
-    type Config = ();
-    type Response = Response<Bytes>;
-    type Error = Infallible;
+    type Response = Response;
+    type Error = Error;
     type Service = ActixHttpServer;
     type InitError = ();
     type Future = LocalBoxFuture<'static, Result<Self::Service, Self::InitError>>;
@@ -154,14 +159,18 @@ async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
     let pool_size = config.get_pool_per_worker();
 
     let srv = Server::build()
-        .backlog(config.get_backlog_size())
-        .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size as usize)).tcp()
+        .backlog(config.get_backlog_size() as _)
+        .bind("walker_server_h1", &config.url, move |cfg| {
+            cfg.memory_pool(PoolId::P1);
+            PoolId::P1.set_read_params(65535, 8192);
+            PoolId::P1.set_write_params(65535, 8192);
+
+            HttpService::build().finish(AppFactory(pool_size as usize))
         })?
-        .workers(config.get_worker_thread() as usize)
+    .workers(config.get_worker_thread() as usize)
         .run();
 
-    attach_server_handle(srv.handle());
+    // attach_server_handle(srv.handle());
 
     srv.await
 }
@@ -171,14 +180,14 @@ async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
     let certs = super::tls::load_tls_certs(&config).unwrap();
 
     let srv = Server::build()
-        .backlog(config.get_backlog_size())
-        .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size as usize)).rustls(certs.clone())
+        .backlog(config.get_backlog_size() as _)
+        .bind("walker_server_h1", &config.url, move |_| {
+            HttpService::build().finish(AppFactory(pool_size as usize))
         })?
-        .workers(config.get_worker_thread() as usize)
+    .workers(config.get_worker_thread() as usize)
         .run();
 
-    attach_server_handle(srv.handle());
+    // attach_server_handle(srv.handle());
 
     srv.await
 }
@@ -189,18 +198,18 @@ fn run_server(config: ServerConfig) -> std::io::Result<()> {
     try_pin_priority();
 
     if config.get_tls() {
-        actix_rt::System::new().block_on(create_tls_server(config))
+        ntex::rt::System::new("Server thread").block_on(create_tls_server(config))
     } else {
-        actix_rt::System::new().block_on(create_sever(config))
+        ntex::rt::System::new("Server thread").block_on(create_sever(config))
     }
 }
 
 #[cold]
 pub fn start_server(config: ServerConfig, env: sys::napi_env) -> napi::Result<()> {
-    if !try_own_start() {
-        return Err(make_js_error("Server already started"));
-    }
-    
+    // if !try_own_start() {
+    //     return Err(make_js_error("Server already started"));
+    // }
+
     reset_thread_affinity();
     initialise_reader();
     unsafe { build_up_pool(env, config.get_pool_size())?; }

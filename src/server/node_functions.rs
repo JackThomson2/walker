@@ -1,6 +1,6 @@
 use napi::bindgen_prelude::*;
 
-use super::{actix_server::start_server, config::ServerConfig, shutdown::stop_server};
+use super::{actix_server::start_server, config::ServerConfig};
 
 #[cold]
 #[napi]
@@ -35,5 +35,6 @@ pub fn start_with_config(env: Env, config: ServerConfig) -> Result<()> {
 /// Attempts to stop the server, returns if it woreked
 /// Experimental at the moment
 pub fn stop() -> bool {
-    stop_server(true)
+    // stop_server(true)
+    false
 }

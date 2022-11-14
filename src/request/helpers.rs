@@ -1,5 +1,5 @@
-use actix_http::{header::HeaderMap};
-use bytes::{BytesMut, Bytes, BufMut};
+use ntex::http::{header::HeaderMap};
+use ntex::util::{BytesMut, Bytes, BufMut};
 use halfbrown::HashMap;
 use napi::{Error, Result, Status};
 use serde_json::Value;
