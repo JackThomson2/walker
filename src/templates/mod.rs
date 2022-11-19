@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ntex::util::{BytesMut, Buf, BufMut};
+use ntex::util::{BytesMut, BufMut};
 use lazy_static::lazy_static;
 use napi::Result;
 use parking_lot::RwLock;

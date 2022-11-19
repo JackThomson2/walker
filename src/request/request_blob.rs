@@ -1,8 +1,8 @@
 use std::mem::MaybeUninit;
 use ntex::http::Request;
 use ntex::util::Bytes;
-use tokio::sync::oneshot::Sender;
 use napi::Result;
+use kanal::{AsyncReceiver, Sender};
 
 use super::helpers::make_js_error;
 use crate::response::{JsResponse, InnerResp};
@@ -10,7 +10,8 @@ use crate::response::{JsResponse, InnerResp};
 #[napi]
 pub struct RequestBlob {
     pub(crate) data: MaybeUninit<Request>,
-    pub(crate) oneshot: MaybeUninit<Sender<JsResponse>>,
+    pub(crate) reciever: AsyncReceiver<JsResponse>,
+    pub(crate) sender: Sender<JsResponse>,
     pub(crate) sent: bool,
     pub(crate) body: Option<Bytes>,
     pub(crate) headers: MaybeUninit<Option<Vec<(Bytes, Bytes)>>>,
@@ -20,9 +21,19 @@ pub struct RequestBlob {
 
 impl RequestBlob {
     pub fn new_empty_with_js() -> Box<Self> {
+        let (send, recv) = kanal::bounded(0);
+
+        let recv = {
+            let copied = recv.clone_async();
+            drop(recv);
+
+            copied
+        };
+
         Box::new(Self {
             data: MaybeUninit::uninit(),
-            oneshot: MaybeUninit::uninit(),
+            reciever: recv,
+            sender: send,
             sent: false,
             body: None,
             headers: MaybeUninit::uninit(),
@@ -32,8 +43,7 @@ impl RequestBlob {
     }
     
     #[inline]
-    pub fn store_self_data(&mut self, data: Request, sender: Sender<JsResponse>, body: Option<Bytes>) {
-        let oneshot = MaybeUninit::new(sender);
+    pub fn store_self_data(&mut self, data: Request, body: Option<Bytes>) {
         let headers = MaybeUninit::new(None);
         let data = MaybeUninit::new(data);
 
@@ -42,7 +52,6 @@ impl RequestBlob {
         }
 
         self.data = data;
-        self.oneshot = oneshot;
         self.headers = headers;
         self.body = body;
         self.sent = false;
@@ -62,10 +71,6 @@ impl RequestBlob {
         }
 
         self.sent = true;
-        let oneshot = unsafe {
-            let result = std::mem::replace(&mut self.oneshot, MaybeUninit::uninit());
-            result.assume_init()
-        };
 
         let headers = unsafe {
             let result = std::mem::replace(&mut self.headers, MaybeUninit::uninit());
@@ -73,7 +78,7 @@ impl RequestBlob {
         };
 
         let js_resp = JsResponse { inner, headers, status_code: self.status_code };
-        let res = oneshot.send(js_resp);
+        let res = self.sender.send(js_resp);
 
         if checked && res.is_err() {
             return Err(make_js_error("Error with sending the response."))

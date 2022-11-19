@@ -7,9 +7,13 @@ Walker.get("/", (res) => {
 });
 
 
+Walker.get("/blank", (res) => {
+    res.uncheckedSendEmptyText();
+});
+
 const config = {
     url: "0.0.0.0:8081",
-    workerThreads: 6,
+    workerThreads: 8,
     poolPerWorkerSize: 200_000,
     backlog: 10000,
     debug: false,

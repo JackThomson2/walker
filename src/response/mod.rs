@@ -1,6 +1,5 @@
 use ntex::http::{
-    header::{HeaderMap, HeaderName, CONTENT_TYPE, SERVER},
-    Response, StatusCode,
+    header::{HeaderMap, HeaderName, CONTENT_TYPE, SERVER}, StatusCode,
 };
 use ntex::web::HttpResponse;
 use ntex::util::Bytes;

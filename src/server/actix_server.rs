@@ -9,12 +9,11 @@ use ntex::util::PoolId;
 
 use futures::future::LocalBoxFuture;
 use napi::sys;
-use tokio::sync::oneshot;
 
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
     object_pool::{build_up_pool, StoredPair, get_pool_for_threads},
-    router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
+    router::{read_only::get_route, store::initialise_reader},
 };
 
 use super::{
@@ -39,6 +38,7 @@ impl ActixHttpServer {
     async fn backoff_get_object(items: &mut Vec<StoredPair>) -> StoredPair {
         loop {
             tokio::task::yield_now().await;
+            println!("Object pool starved!");
 
             if let Some(retrieved) = items.pop() {
                 return retrieved;
@@ -83,7 +83,6 @@ impl Service<Request> for ActixHttpServer {
             let router = unsafe { router.get_unchecked(offset % router.len()) };
 
             let mut body = None;
-
             if req.method() == http::Method::POST {
                 body = match get_post_body(req.payload()).await {
                     Ok(body) => Some(body),
@@ -94,32 +93,30 @@ impl Service<Request> for ActixHttpServer {
             }
 
             let object_reference = Self::get_mut_from_unsafe(&vec_ref);
+            let reference = unsafe { object_reference.get_unchecked_mut(router.threads_id) };
 
-            let mut js_obj = unsafe {
-                let reference = object_reference.get_unchecked_mut(router.threads_id);
-
-                match reference.pop() {
-                    Some(res) => res,
-                    None => Self::backoff_get_object(reference).await,
-                }
+            let mut js_obj = match reference.pop() {
+                Some(res) => res,
+                None => Self::backoff_get_object(reference).await,
             };
-
-            let (send, rec) = oneshot::channel();
             
-            js_obj.0 .0.store_self_data(req, send, body);
+            js_obj.0 .0.store_self_data(req, body);
 
             router.function.call(
                 js_obj.0 .1,
                 crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
             );
 
-            let result = match rec.await {
+            let result = match js_obj.0 .0.reciever.recv().await {
                 Ok(res) => Ok(res.apply_to_response()),
                 Err(_) => get_failed_message(),
             };
 
             unsafe {
-                let reference = object_reference.get_unchecked_mut(router.threads_id);
+                if reference.len() == reference.capacity() {
+                    std::hint::unreachable_unchecked()
+                }
+
                 reference.push(js_obj);
             }
 
@@ -182,7 +179,7 @@ async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
     let srv = Server::build()
         .backlog(config.get_backlog_size() as _)
         .bind("walker_server_h1", &config.url, move |_| {
-            HttpService::build().finish(AppFactory(pool_size as usize))
+            HttpService::build().finish(AppFactory(pool_size as usize)).rustls(certs.clone())
         })?
     .workers(config.get_worker_thread() as usize)
         .run();
