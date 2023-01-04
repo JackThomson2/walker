@@ -1,6 +1,6 @@
 use std::ptr;
 
-use bytes::{BytesMut, Bytes};
+use ntex::util::{BytesMut, Bytes};
 use napi::{
     bindgen_prelude::{FromNapiValue, TypeName},
     check_status,

@@ -1,17 +1,18 @@
 use std::cmp;
 
-use napi::Result;
-use halfbrown::HashMap;
-
-use crate::request::helpers::{make_js_error, make_js_error_string};
-
-#[derive(Debug)]
+#[napi(object)]
+#[derive(Debug, Default)]
+/// This allows you to configure the server with more
+/// granular control, some options are required.
 pub struct ServerConfig {
     pub url: String,
-    pub worker_threads: usize,
-    pub pool_per_worker_size: usize,
-    pub backlog: usize,
-    pub debug: bool,
+    pub worker_threads: Option<u32>,
+    pub pool_per_worker_size: Option<u32>,
+    pub backlog: Option<u32>,
+    pub debug: Option<bool>,
+    pub tls: Option<bool>,
+    pub key_location: Option<String>,
+    pub cert_location: Option<String>,
 }
 
 #[cold]
@@ -26,50 +27,31 @@ impl ServerConfig {
     pub fn default_with_url(url: String) -> Self {
         Self {
             url,
-            worker_threads: guess_optimal_worker_count(),
-            pool_per_worker_size: 10_000,
-            backlog: 1024,
-            debug: false,
+            ..Default::default()
         }
     }
 
-    #[cold]
-    pub fn from_config_blob(config: HashMap<String, String>) -> Result<Self> {
-        let url = match config.get("url") {
-            Some(res) => res.clone(),
-            None => return Err(make_js_error("No URL provided")),
-        };
+    pub fn get_worker_thread(&self) -> u32 {
+        self.worker_threads.unwrap_or(guess_optimal_worker_count() as u32)
+    } 
+ 
+    pub fn get_pool_per_worker(&self) -> u32 {
+        self.pool_per_worker_size.unwrap_or(10_000)
+    }
 
-        let get_number_with_deault = |key: &'static str, fallback: usize| {
-            match config.get(key) {
-                Some(res) => match res.parse::<usize>() {
-                    Ok(res) => Ok(res),
-                    Err(_) => Err(make_js_error_string(format!("Invalid number provided for {}", key))),
-                },
-                None => Ok(fallback),
-            }
-        };
+    pub fn get_backlog_size(&self) -> u32 {
+        self.backlog.unwrap_or(1024)
+    }
 
-        let get_bool_with_default = |key: &'static str, fallback: bool| {
-            match config.get(key) {
-                Some(res) => match res.parse::<bool>() {
-                    Ok(res) => Ok(res),
-                    Err(_) => Err(make_js_error_string(format!("Invalid number provided for {}", key))),
-                },
-                None => Ok(fallback),
-            }
-        };
-        
-        Ok(Self {
-            url,
-            worker_threads: get_number_with_deault("worker_threads", guess_optimal_worker_count())?,
-            pool_per_worker_size: get_number_with_deault("pool_per_worker_size", 10_000)?,
-            backlog: get_number_with_deault("backlog", 1024)?,
-            debug: get_bool_with_default("debug", false)?,
-        })
+    pub fn get_debug(&self) -> bool {
+        self.debug.unwrap_or(false)
+    }
+
+    pub fn get_tls(&self) -> bool {
+        self.tls.unwrap_or(false)
     }
 
     pub fn get_pool_size(&self) -> usize {
-        self.worker_threads * self.pool_per_worker_size
+        (self.get_worker_thread() * self.get_pool_per_worker()) as usize 
     }
 }

@@ -1,9 +1,9 @@
-use actix_http::{
-    header::{HeaderMap, HeaderName, CONTENT_TYPE, SERVER},
-    Response, StatusCode,
+use ntex::http::{
+    header::{HeaderMap, HeaderName, CONTENT_TYPE, SERVER}, StatusCode,
 };
-use bytes::Bytes;
-use http::HeaderValue;
+use ntex::web::HttpResponse;
+use ntex::util::Bytes;
+use ntex::http::header::HeaderValue;
 
 use crate::templates::store_in_bytes_buffer;
 
@@ -36,28 +36,28 @@ use InnerResp::*;
 
 #[cold]
 #[inline(never)]
-fn render_internal_error() -> Response<Bytes> {
-    Response::with_body(
+fn render_internal_error() -> HttpResponse {
+    HttpResponse::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
-        INTERNAL_SERVER_ERROR.clone(),
+        INTERNAL_SERVER_ERROR.clone().into(),
     )
 }
 
 #[cold]
 #[inline(never)]
-fn render_internal_error_with_message(message: &'static [u8]) -> Response<Bytes> {
-    Response::with_body(
+fn render_internal_error_with_message(message: &'static [u8]) -> HttpResponse {
+    HttpResponse::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
-        Bytes::from_static(message),
+        Bytes::from_static(message).into(),
     )
 }
 
 #[cold]
 #[inline(never)]
-fn render_internal_error_with_bytes(message: Bytes) -> Response<Bytes> {
-    Response::with_body(
+fn render_internal_error_with_bytes(message: Bytes) -> HttpResponse {
+    HttpResponse::with_body(
         StatusCode::INTERNAL_SERVER_ERROR,
-        message,
+        message.into(),
     )
 }
 
@@ -81,7 +81,7 @@ fn apply_headers(
             };
 
             unsafe {
-                let value = HeaderValue::from_maybe_shared_unchecked(val_b);
+                let value = HeaderValue::from_shared_unchecked(val_b);
                 hdrs.insert(key, value);
             }
         }
@@ -104,7 +104,7 @@ impl JsResponse {
     }
 
     #[inline(always)]
-    pub fn apply_to_response(self) -> Response<Bytes> {
+    pub fn apply_to_response(self) -> HttpResponse {
         let message = match &self.inner {
             Text(_) | EmptyString => TEXT_HEADER_VAL.clone(),
             Json(_) => JSON_HEADER_VAL.clone(),
@@ -127,7 +127,7 @@ impl JsResponse {
             _ => unreachable!(),
         };
 
-        let mut rsp = Response::with_body(Self::get_status_code(self.status_code), bytes);
+        let mut rsp = HttpResponse::with_body(Self::get_status_code(self.status_code), bytes.into());
         let hdrs = rsp.headers_mut();
 
         apply_headers(hdrs, message, self.headers);

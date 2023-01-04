@@ -52,28 +52,35 @@ export function start(address: string): void
  * This allows you to configure the number of workers
  */
 export function startWithWorkerCount(address: string, workers: number): void
-/**
- * This is called to start the server the address will need to include the IP and port
- * This allows you to configure more of the parameters of the server current options are all options need to be strings:
- *
- * url: The url to listen on
- *
- * worker_threads: The number of worker threads to use
- *
- * backlog: The number of connections to queue up
- *
- * pool_per_worker_size: The size of the pool per worker
- *
- * debug: Whether to enable debug mode
- */
-export function startWithConfig(config: HalfBrown): void
+/** This is called to start the server the using the `ServerConfig` object */
+export function startWithConfig(config: ServerConfig): void
 /**
  * Attempts to stop the server, returns if it woreked
  * Experimental at the moment
  */
 export function stop(): boolean
+/**
+ * This allows you to configure the server with more
+ * granular control, some options are required.
+ */
+export interface ServerConfig {
+  url: string
+  workerThreads?: number
+  poolPerWorkerSize?: number
+  backlog?: number
+  debug?: boolean
+  tls?: boolean
+  keyLocation?: string
+  certLocation?: string
+}
 export function loadNewTemplate(groupName: string, directory: string): void
 export function reloadGroup(groupName: string): void
+export function getWorkerId(): number
+/**
+ * This is used so you can register a worker thread under walker, this needs to be called
+ * before the server starts to register the pool of objects used for requests.
+ */
+export function registerThreadsPool(poolSize: number): void
 export function getThreadAffinity(): Array<number>
 export class DbConnection {
   query(query: FastStr): object

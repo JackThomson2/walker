@@ -1,4 +1,3 @@
-use actix_http::HttpMessage;
 use napi::bindgen_prelude::Uint8Array;
 
 use crate::{
@@ -71,7 +70,7 @@ impl RequestBlob {
     /// Get the url parameters as an object with each key and value
     /// this will only be null if an error has occurred
     pub fn header_length(&self) -> i64 {
-        let header_val = self.get_data_val().headers().len_keys();
+        let header_val = self.get_data_val().headers().len();
 
         header_val as i64
     }
@@ -100,7 +99,7 @@ impl RequestBlob {
     /// Retrieve the raw body bytes in a Uint8Array to be used
     pub fn get_body(&mut self) -> Uint8Array {
         match &self.body {
-            Some(res) => res.clone().into(),
+            Some(res) => (&res.clone() as &[u8]).into(),
             None => vec![].into(),
         }
     }

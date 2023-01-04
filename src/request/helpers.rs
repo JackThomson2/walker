@@ -1,19 +1,10 @@
-use actix_http::{header::HeaderMap};
-use bytes::{BytesMut, Bytes, BufMut};
+use ntex::http::{header::HeaderMap};
+use ntex::util::{BytesMut, Bytes, BufMut};
 use halfbrown::HashMap;
 use napi::{Error, Result, Status};
 use serde_json::Value;
 
 use crate::napi::halfbrown::HalfBrown;
-
-#[cold]
-#[inline(never)]
-pub fn make_generic_error() -> Error {
-    Error::new(
-        Status::GenericFailure,
-        "Unable to send response".to_string(),
-    )
-}
 
 #[cold]
 #[inline(never)]

@@ -1,4 +1,4 @@
-use actix_http::Method;
+use ntex::http::Method;
 use napi::bindgen_prelude::*;
 
 use crate::{router::store::add_new_route, napi::tsfn::ThreadsafeFunction};
@@ -46,8 +46,7 @@ impl Methods {
 /// needed to get the information from the request
 pub fn new_route(route: String, method: Methods, callback: JsFunction) -> Result<()> {
   let tsfn = ThreadsafeFunction::create(callback.0.env, callback.0.value, 1024)?;
-
-  add_new_route(&route, method, tsfn)
+  add_new_route(&route, method, super::RouteNode::new_with_fn(tsfn))
 }
 
 #[cold]

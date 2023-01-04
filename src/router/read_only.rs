@@ -1,6 +1,6 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit};
 
-use actix_http::Method;
+use ntex::http::Method;
 use halfbrown::HashMap;
 use matchit::{Router, Params};
 

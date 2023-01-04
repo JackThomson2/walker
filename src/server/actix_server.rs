@@ -1,34 +1,35 @@
-use std::{cell::UnsafeCell, convert::Infallible, rc::Rc};
+use std::{cell::UnsafeCell, rc::Rc, sync::atomic::{AtomicUsize, Ordering}};
+use std::{task::Context, task::Poll};
 
-use actix_http::{HttpService, Request, Response};
-use actix_server::Server;
-use actix_service::{Service, ServiceFactory};
-use bytes::Bytes;
+use ntex::http::{HttpService, Request, Response};
+use ntex::web::Error;
+use ntex::server::Server;
+use ntex::service::{Service, ServiceFactory};
+use ntex::util::PoolId;
+
 use futures::future::LocalBoxFuture;
-use http::HeaderValue;
 use napi::sys;
-use tokio::sync::oneshot;
 
 use crate::{
     extras::scheduler::{pin_js_thread, try_pin_priority, reset_thread_affinity},
-    object_pool::{build_up_pool, get_stored_chunk, StoredPair},
-    router::{read_only::get_route, store::initialise_reader}, request::helpers::make_js_error,
+    object_pool::{build_up_pool, StoredPair, get_pool_for_threads},
+    router::{read_only::get_route, store::initialise_reader},
 };
 
 use super::{
     config::ServerConfig,
-    helpers::{get_failed_message, get_post_body}, shutdown::{attach_server_handle, try_own_start},
+    helpers::{get_failed_message, get_post_body}, 
 };
 
 struct ActixHttpServer {
-    _hdr_srv: HeaderValue,
-    object_pool: Rc<UnsafeCell<Vec<StoredPair>>>,
+    object_pool: Rc<UnsafeCell<Vec<Vec<StoredPair>>>>,
+    idx: UnsafeCell<usize>
 }
 
 impl ActixHttpServer {
     #[allow(clippy::mut_from_ref)]
     #[inline(always)]
-    fn get_mut_from_unsafe(unsafe_cell: &UnsafeCell<Vec<StoredPair>>) -> &mut Vec<StoredPair> {
+    fn get_mut_from_unsafe(unsafe_cell: &UnsafeCell<Vec<Vec<StoredPair>>>) -> &mut Vec<Vec<StoredPair>> {
         unsafe { &mut *unsafe_cell.get() }
     }
 
@@ -37,35 +38,51 @@ impl ActixHttpServer {
     async fn backoff_get_object(items: &mut Vec<StoredPair>) -> StoredPair {
         loop {
             tokio::task::yield_now().await;
+            println!("Object pool starved!");
 
             if let Some(retrieved) = items.pop() {
                 return retrieved;
             }
         }
     }
+
+    #[inline(always)]
+    fn get_next_idx(&self) -> usize {
+        let position = unsafe { &mut *self.idx.get() };
+        let val = *position;
+
+        *position += 1;
+
+        val
+    }
 }
 
 impl Service<Request> for ActixHttpServer {
-    type Response = Response<Bytes>;
-    type Error = Infallible;
+    type Response = Response;
+    type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    actix_service::always_ready!();
+    #[inline]
+    fn poll_ready(&self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
 
     #[inline(always)]
     fn call(&self, mut req: Request) -> Self::Future {
         let vec_ref = self.object_pool.clone();
+        let offset = self.get_next_idx();
 
         Box::pin(async move {
-            let result = match get_route(req.path(), req.method().clone()) {
+            let router = match get_route(req.path(), req.method().clone()) {
                 Some(res) => res,
                 None => {
                     return get_failed_message();
                 }
             };
 
-            let mut body = None;
+            let router = unsafe { router.get_unchecked(offset % router.len()) };
 
+            let mut body = None;
             if req.method() == http::Method::POST {
                 body = match get_post_body(req.payload()).await {
                     Ok(body) => Some(body),
@@ -75,31 +92,33 @@ impl Service<Request> for ActixHttpServer {
                 };
             }
 
-            let to_add_back = Self::get_mut_from_unsafe(&vec_ref);
-            let mut js_obj = match to_add_back.pop() {
+            let object_reference = Self::get_mut_from_unsafe(&vec_ref);
+            let reference = unsafe { object_reference.get_unchecked_mut(router.threads_id) };
+
+            let mut js_obj = match reference.pop() {
                 Some(res) => res,
-                None => Self::backoff_get_object(to_add_back).await,
+                None => Self::backoff_get_object(reference).await,
             };
+            
+            js_obj.0 .0.store_self_data(req, body);
 
-            let (send, rec) = oneshot::channel();
-            js_obj.0 .0.store_self_data(req, send, body);
-
-            result.call(
+            router.function.call(
                 js_obj.0 .1,
                 crate::napi::tsfn::ThreadsafeFunctionCallMode::NonBlocking,
             );
 
-            let result = match rec.await {
+            let result = match js_obj.0 .0.reciever.recv().await {
                 Ok(res) => Ok(res.apply_to_response()),
                 Err(_) => get_failed_message(),
             };
 
-            // Saves a check check for length we can be sure that the vec is not full
-            if to_add_back.len() == to_add_back.capacity() {
-                unsafe { std::hint::unreachable_unchecked() }
-            }
+            unsafe {
+                if reference.len() == reference.capacity() {
+                    std::hint::unreachable_unchecked()
+                }
 
-            to_add_back.push(js_obj);
+                reference.push(js_obj);
+            }
 
             result
         })
@@ -109,10 +128,11 @@ impl Service<Request> for ActixHttpServer {
 #[derive(Clone)]
 struct AppFactory(usize);
 
+static IDX_OFFSETTER: AtomicUsize = AtomicUsize::new(0);
+
 impl ServiceFactory<Request> for AppFactory {
-    type Config = ();
-    type Response = Response<Bytes>;
-    type Error = Infallible;
+    type Response = Response;
+    type Error = Error;
     type Service = ActixHttpServer;
     type InitError = ();
     type Future = LocalBoxFuture<'static, Result<Self::Service, Self::InitError>>;
@@ -121,45 +141,72 @@ impl ServiceFactory<Request> for AppFactory {
         try_pin_priority();
 
         let chunk_size = self.0;
+        let object_pool = Rc::new(UnsafeCell::new(get_pool_for_threads(chunk_size).unwrap()));
 
         Box::pin(async move {
             Ok(ActixHttpServer {
-                _hdr_srv: HeaderValue::from_static("Walker"),
-                object_pool: Rc::new(UnsafeCell::new(get_stored_chunk(chunk_size))),
+                object_pool,
+                idx: UnsafeCell::new(IDX_OFFSETTER.fetch_add(1, Ordering::SeqCst)),
             })
         })
     }
 }
 
 async fn create_sever(config: ServerConfig) -> std::io::Result<()> {
-    let pool_size = config.pool_per_worker_size;
+    let pool_size = config.get_pool_per_worker();
 
     let srv = Server::build()
-        .backlog(config.backlog as u32)
-        .bind("walker_server_h1", &config.url, move || {
-            HttpService::build().finish(AppFactory(pool_size)).tcp()
+        .backlog(config.get_backlog_size() as _)
+        .bind("walker_server_h1", &config.url, move |cfg| {
+            cfg.memory_pool(PoolId::P1);
+            PoolId::P1.set_read_params(65535, 8192);
+            PoolId::P1.set_write_params(65535, 8192);
+
+            HttpService::build().finish(AppFactory(pool_size as usize))
         })?
-        .workers(config.worker_threads)
+    .workers(config.get_worker_thread() as usize)
         .run();
 
-    attach_server_handle(srv.handle());
+    // attach_server_handle(srv.handle());
 
     srv.await
 }
+
+async fn create_tls_server(config: ServerConfig) -> std::io::Result<()> {
+    let pool_size = config.get_pool_per_worker();
+    let certs = super::tls::load_tls_certs(&config).unwrap();
+
+    let srv = Server::build()
+        .backlog(config.get_backlog_size() as _)
+        .bind("walker_server_h1", &config.url, move |_| {
+            HttpService::build().finish(AppFactory(pool_size as usize)).rustls(certs.clone())
+        })?
+    .workers(config.get_worker_thread() as usize)
+        .run();
+
+    // attach_server_handle(srv.handle());
+
+    srv.await
+}
+
 
 fn run_server(config: ServerConfig) -> std::io::Result<()> {
     // Lets set net reciever priority here
     try_pin_priority();
 
-    actix_rt::System::new().block_on(create_sever(config))
+    if config.get_tls() {
+        ntex::rt::System::new("Server thread").block_on(create_tls_server(config))
+    } else {
+        ntex::rt::System::new("Server thread").block_on(create_sever(config))
+    }
 }
 
 #[cold]
 pub fn start_server(config: ServerConfig, env: sys::napi_env) -> napi::Result<()> {
-    if !try_own_start() {
-        return Err(make_js_error("Server already started"));
-    }
-    
+    // if !try_own_start() {
+    //     return Err(make_js_error("Server already started"));
+    // }
+
     reset_thread_affinity();
     initialise_reader();
     unsafe { build_up_pool(env, config.get_pool_size())?; }
